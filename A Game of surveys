@@ -1,0 +1,100 @@
+index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>A Game Of Surveys</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: white;
+      height: 100vh;
+    }
+
+    /* Top-left level text */
+    .level {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      font-size: 16px;
+    }
+
+    /* Center content */
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+    }
+
+    .question {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .options {
+      margin-bottom: 20px;
+    }
+
+    .options label {
+      display: block;
+      font-size: 18px;
+      margin: 10px 0;
+      cursor: pointer;
+    }
+
+    button {
+      padding: 10px 25px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="level">Level 0: stuff before surveys</div>
+
+  <div class="container">
+    <div class="question">What is your gender?</div>
+
+    <div class="options">
+      <label>
+        <input type="radio" name="gender" value="Man">
+        Man
+      </label>
+      <label>
+        <input type="radio" name="gender" value="Woman">
+        Woman
+      </label>
+    </div>
+
+    <button id="continueBtn" disabled>Continue</button>
+  </div>
+
+  <script>
+    const radios = document.querySelectorAll('input[name="gender"]');
+    const continueBtn = document.getElementById('continueBtn');
+
+    radios.forEach(radio => {
+      radio.addEventListener('change', () => {
+        continueBtn.disabled = false;
+      });
+    });
+
+    continueBtn.addEventListener('click', () => {
+      const selected = document.querySelector('input[name="gender"]:checked').value;
+      alert("You selected: " + selected);
+      // Later: move to the next level here
+    });
+  </script>
+
+</body>
+</html>
