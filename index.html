@@ -1,5 +1,205 @@
 index.html<!DOCTYPE html><!DOCTYPE html>
+<html lang="en"><!DOCTYPE html>
 <html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>A Game Of Surveys</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: white;
+      height: 100vh;
+    }
+
+    .level {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      font-size: 16px;
+    }
+
+    .container {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .question {
+      font-size: 24px;
+      margin-bottom: 20px;
+      max-width: 650px;
+    }
+
+    .options label {
+      display: block;
+      margin: 10px 0;
+      font-size: 18px;
+      cursor: pointer;
+    }
+
+    select {
+      font-size: 16px;
+      padding: 6px;
+      margin: 5px;
+    }
+
+    button {
+      margin-top: 25px;
+      padding: 10px 25px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+<div class="level" id="levelText">Level 0: stuff before surveys</div>
+
+<div class="container">
+  <div id="question" class="question"></div>
+  <div id="options" class="options"></div>
+  <button id="continueBtn">Continue</button>
+</div>
+
+<script>
+  const questions = [
+    { type: "message", text: "Hello, this survey will take you approximately 2.5 minutes to complete, so please answer honestly!!!" },
+
+    { type: "radio", text: "What is your gender?", options: ["Man", "Woman"] },
+
+    { type: "radio", text: "How old are you?", options: [
+      "Under 18",
+      "25-34",
+      "35-44",
+      "45-56",
+      "57-70",
+      "Over 70 years old"
+    ]},
+
+    { type: "birth", text: "What is your year of birth?" },
+
+    { type: "radio", text: "What is your job?", options: ["Engineer", "Firefighter", "College"] }
+  ];
+
+  let step = 0;
+  let answers = JSON.parse(localStorage.getItem("level0Answers")) || {};
+
+  const questionEl = document.getElementById("question");
+  const optionsEl = document.getElementById("options");
+  const continueBtn = document.getElementById("continueBtn");
+
+  function saveProgress() {
+    localStorage.setItem("level0Answers", JSON.stringify(answers));
+    localStorage.setItem("level0Progress", step);
+  }
+
+  function disqualify() {
+    localStorage.clear();
+    questionEl.textContent = "You were disqualified from the survey because you are too old!!!";
+    optionsEl.innerHTML = "";
+    continueBtn.style.display = "none";
+  }
+
+  function loadStep() {
+    optionsEl.innerHTML = "";
+    continueBtn.disabled = false;
+
+    const q = questions[step];
+    questionEl.textContent = q.text;
+
+    if (q.type === "radio") {
+      continueBtn.disabled = true;
+      q.options.forEach(opt => {
+        const label = document.createElement("label");
+        label.innerHTML = `<input type="radio" name="answer" value="${opt}"> ${opt}`;
+        optionsEl.appendChild(label);
+      });
+
+      document.querySelectorAll('input[name="answer"]').forEach(r =>
+        r.addEventListener("change", () => continueBtn.disabled = false)
+      );
+    }
+
+    if (q.type === "birth") {
+      const month = document.createElement("select");
+      const year = document.createElement("select");
+
+      month.innerHTML = "<option value=''>Month</option>" +
+        ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
+        .map(m => `<option>${m}</option>`).join("");
+
+      year.innerHTML = "<option value=''>Year</option>";
+      for (let y = new Date().getFullYear(); y >= 1900; y--) {
+        year.innerHTML += `<option>${y}</option>`;
+      }
+
+      optionsEl.append(month, year);
+      continueBtn.disabled = true;
+
+      month.addEventListener("change", checkBirth);
+      year.addEventListener("change", checkBirth);
+
+      function checkBirth() {
+        continueBtn.disabled = !(month.value && year.value);
+      }
+    }
+  }
+
+  continueBtn.onclick = () => {
+    const q = questions[step];
+
+    if (q.type === "radio") {
+      const val = document.querySelector("input[name='answer']:checked").value;
+      answers[q.text] = val;
+
+      if (q.text === "How old are you?" && (val === "57-70" || val === "Over 70 years old")) {
+        disqualify();
+        return;
+      }
+    }
+
+    if (q.type === "birth") {
+      const selects = optionsEl.querySelectorAll("select");
+      answers[q.text] = `${selects[0].value} ${selects[1].value}`;
+    }
+
+    saveProgress();
+    step++;
+
+    if (step < questions.length) {
+      loadStep();
+    } else {
+      // End of Level 0
+      questionEl.textContent = "YOU HAVE QUALIFIED FOR THE REAL SURVEYS!!!";
+      optionsEl.innerHTML = "";
+      continueBtn.onclick = startLevel1;
+    }
+  };
+
+  function startLevel1() {
+    localStorage.setItem("level1Unlocked", "true");
+    document.getElementById("levelText").textContent = "Level 1: The real survey";
+    questionEl.textContent = "Level 1 will start here.";
+    optionsEl.innerHTML = "";
+    continueBtn.style.display = "none";
+  }
+
+  loadStep();
+</script>
+
+</body>
+</html>
+
 <head>
   <meta charset="UTF-8">
   <title>A Game Of Surveys</title>
