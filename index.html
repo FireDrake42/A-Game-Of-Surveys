@@ -1,4 +1,138 @@
-index.html
+index.html<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>A Game Of Surveys</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: white;
+      height: 100vh;
+    }
+
+    .level {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      font-size: 16px;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      text-align: center;
+    }
+
+    .question {
+      font-size: 24px;
+      margin-bottom: 20px;
+    }
+
+    .options label {
+      display: block;
+      font-size: 18px;
+      margin: 10px 0;
+      cursor: pointer;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 10px 25px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="level">Level 0: stuff before surveys</div>
+
+  <div class="container">
+    <div id="question" class="question">What is your gender?</div>
+
+    <div id="options" class="options"></div>
+
+    <button id="continueBtn" disabled>Continue</button>
+  </div>
+
+  <script>
+    const questions = [
+      {
+        text: "What is your gender?",
+        options: ["Man", "Woman"]
+      },
+      {
+        text: "How old are you?",
+        options: [
+          "Under 18",
+          "25–34",
+          "35–44",
+          "45–56",
+          "57–70",
+          "Over 70 years old"
+        ]
+      }
+    ];
+
+    let currentQuestion = 0;
+    const answers = {};
+
+    const questionEl = document.getElementById("question");
+    const optionsEl = document.getElementById("options");
+    const continueBtn = document.getElementById("continueBtn");
+
+    function loadQuestion() {
+      continueBtn.disabled = true;
+      optionsEl.innerHTML = "";
+      questionEl.textContent = questions[currentQuestion].text;
+
+      questions[currentQuestion].options.forEach(option => {
+        const label = document.createElement("label");
+        label.innerHTML = `
+          <input type="radio" name="answer" value="${option}">
+          ${option}
+        `;
+        optionsEl.appendChild(label);
+      });
+
+      document.querySelectorAll('input[name="answer"]').forEach(radio => {
+        radio.addEventListener("change", () => {
+          continueBtn.disabled = false;
+        });
+      });
+    }
+
+    continueBtn.addEventListener("click", () => {
+      const selected = document.querySelector('input[name="answer"]:checked');
+      answers[currentQuestion] = selected.value;
+
+      currentQuestion++;
+
+      if (currentQuestion < questions.length) {
+        loadQuestion();
+      } else {
+        questionEl.textContent = "Thanks for answering!";
+        optionsEl.innerHTML = "";
+        continueBtn.style.display = "none";
+        console.log("Survey answers:", answers);
+      }
+    });
+
+    loadQuestion();
+  </script>
+
+</body>
+</html>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
