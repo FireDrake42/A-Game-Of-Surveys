@@ -5,41 +5,41 @@
 <title>A Game Of Surveys</title>
 
 <style>
-html, body {
+body {
   margin: 0;
-  padding: 0;
-  height: 100%;
-  overflow: hidden;
   font-family: Arial, sans-serif;
+  background: white;
 }
 
-.level { position: absolute; top: 10px; left: 10px; }
-.trick { position: absolute; top: 10px; right: 10px; }
-.progress { font-size: 28px; margin-bottom: 20px; }
+#topLeft {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  font-size: 16px;
+}
 
-.container {
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
+#topRight {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 16px;
+}
+
+#progress {
+  text-align: center;
+  font-size: 32px;
+  margin-top: 40px;
+}
+
+#container {
+  max-width: 600px;
+  margin: 120px auto;
   text-align: center;
 }
 
-.options label {
-  display: block;
-  margin: 6px;
-  font-size: 17px;
-}
-
-textarea { width: 360px; height: 100px; }
-input[type="range"] { width: 300px; }
-
-.rangeValue { margin-top: 8px; }
-
 button {
   margin-top: 20px;
-  padding: 10px 28px;
+  padding: 10px 25px;
   font-size: 16px;
 }
 </style>
@@ -47,203 +47,175 @@ button {
 
 <body>
 
-<div id="levelText" class="level"></div>
-<div id="trickChance" class="trick"></div>
+<div id="topLeft"></div>
+<div id="topRight"></div>
+<div id="progress"></div>
 
-<div class="container">
-  <div id="progress" class="progress"></div>
-  <div id="question"></div>
-  <div id="options" class="options"></div>
-  <button id="continueBtn">Continue</button>
-</div>
+<div id="container"></div>
 
 <script>
-/* ========= STATE ========= */
+/* =====================
+   GLOBAL STATE
+===================== */
 let level = 0;
 let step = 0;
 let trickChance = 2.0;
-let activeTrick = null;
 
-/* ========= ELEMENTS ========= */
-const qEl = document.getElementById("question");
-const oEl = document.getElementById("options");
-const btn = document.getElementById("continueBtn");
-const lvlText = document.getElementById("levelText");
-const prog = document.getElementById("progress");
-const trickEl = document.getElementById("trickChance");
-
-/* ========= TEXT VALIDATION ========= */
-function invalidTextAnswer(text) {
-  const clean = text.toLowerCase().trim();
-  if (clean.length < 10) return true;
-  if (/^(.)\1{6,}$/.test(clean.replace(/\s+/g, ""))) return true;
-  const words = clean.split(/\s+/);
-  if (new Set(words).size <= 2) return true;
-  return false;
+/* =====================
+   UTILITIES
+===================== */
+function save() {
+  localStorage.setItem("surveySave", JSON.stringify({ level, step, trickChance }));
 }
 
-/* ========= LEVEL DATA ========= */
+function loadSave() {
+  const data = JSON.parse(localStorage.getItem("surveySave"));
+  if (data) {
+    level = data.level;
+    step = data.step;
+    trickChance = data.trickChance;
+  }
+}
 
-const level2Greeting = {
-  type:"msg",
-  text:"Hi, this survey will take you approximately 15min!"
-};
+function disqualify(msg) {
+  document.body.innerHTML = `<h1 style="text-align:center;margin-top:100px;">${msg}</h1>`;
+  localStorage.clear();
+}
 
-const level2Questions = Array.from({ length: 40 }, (_, i) => {
-  if (i % 7 === 0)
-    return { type:"slider", text:"How mentally demanding was this task?" };
-  if (i % 6 === 0)
-    return { type:"multi", text:"Which of these apply to you?", options:["Focus","Stress","Motivation","Fatigue"] };
-  if (i % 5 === 0)
-    return { type:"text10", text:"Explain your reasoning in detail." };
-  return {
-    type:"radio",
-    text:`Decision-based question ${i + 1}`,
-    options:["Strongly Agree","Agree","Neutral","Disagree"]
-  };
-});
+/* =====================
+   LEVEL DEFINITIONS
+===================== */
 
-/* ========= TRICKS ========= */
-
-const trickTexts = [
-  "Attention check: select option “{X}”.",
-  "Verification question: choose “{X}”.",
-  "Please select “{X}” to continue."
+// LEVEL 0 (QUALIFIER)
+const level0 = [
+  { type:"radio", text:"What is your gender?", options:["Man","Woman"] },
+  { type:"radio", text:"How old are you?", options:["Under 18","18-24","25-34","35-44","45-56","57-70","Over 70"] },
+  { type:"radio", text:"What is your job?", options:["Engineer","Firefighter","College"] }
 ];
 
-function rollTrickLevel2() {
-  if (Math.random() * 100 >= trickChance) return null;
+// LEVEL 1 (NORMAL SURVEY – 20)
+const level1 = [
+  { type:"text", text:"What motivates you to succeed?" },
+  { type:"slider", text:"How difficult was it to achieve your goals?" },
+  { type:"radio", text:"Do you enjoy challenges?", options:["Yes","No","Sometimes","Not sure"] }
+];
 
-  if (Math.random() < 0.2) {
-    const target = Math.floor(Math.random() * 10) + 1;
-    return {
-      type:"trickSlider",
-      text:`Please slide to the number ${target} (1–10) to verify your attention.`,
-      correct: target
-    };
-  } else {
-    const letters = ["A","B","C","D"];
-    const correct = letters[Math.floor(Math.random()*4)];
-    const text = trickTexts[Math.floor(Math.random()*trickTexts.length)]
-      .replace("{X}", correct);
-    return { type:"trick", text, options:letters, correct };
-  }
-}
+// LEVEL 2 (MIXING – 40)
+const level2 = [
+  { type:"text", text:"Describe a difficult decision you made." },
+  { type:"slider", text:"How stressful was it? (1–10)" },
+  { type:"radio", text:"Do you prefer structure?", options:["Yes","No","Sometimes","Unsure"] }
+];
 
-/* ========= CORE ========= */
+/* =====================
+   RENDER
+===================== */
+function render() {
+  const container = document.getElementById("container");
+  container.innerHTML = "";
 
-function disqualify(msg){
-  qEl.textContent = msg;
-  oEl.innerHTML = "";
-  btn.style.display = "none";
-}
+  document.getElementById("topLeft").innerText =
+    level === 0 ? "Level 0: Qualification"
+    : level === 1 ? "Level 1: Survey"
+    : "Level 2: Mixing";
 
-function load(){
-  oEl.innerHTML="";
-  btn.disabled=true;
-  activeTrick=null;
+  document.getElementById("topRight").innerText =
+    level === 0 ? ""
+    : `Trick Question Chance: ${trickChance.toFixed(2)}%`;
 
-  if(level === 2){
-    prog.textContent = step === 0 ? "0/40" : `${step}/40`;
-    trickEl.textContent = `Trick Chance: ${trickChance.toFixed(1)}%`;
-    lvlText.textContent = "Level 2: Mixing";
-  }
+  let questions =
+    level === 0 ? level0 :
+    level === 1 ? level1 :
+    level2;
 
-  let q;
-  if(step === 0){
-    q = level2Greeting;
-  } else {
-    q = level2Questions[step - 1];
-    activeTrick = rollTrickLevel2();
-    if(activeTrick) q = activeTrick;
-  }
+  let total =
+    level === 0 ? questions.length :
+    level === 1 ? 20 :
+    40;
 
-  qEl.textContent = q.text;
+  document.getElementById("progress").innerText =
+    level === 0 ? "" : `${step}/${total}`;
 
-  if(q.type === "msg"){
-    btn.disabled = false;
-    btn.onclick = nextStep;
+  // Greeting screens
+  if (step === 0) {
+    const greet = document.createElement("p");
+    greet.innerText =
+      level === 0
+        ? "Hello, this survey will take approximately 2.5 minutes."
+        : level === 1
+        ? "Hello, this survey will take approximately 7 minutes."
+        : "Hi, this survey will take you approximately 15min!";
+    container.appendChild(greet);
+    addContinue();
     return;
   }
 
-  if(q.type === "radio" || q.type === "trick"){
-    q.options.forEach(opt=>{
-      const l=document.createElement("label");
-      l.innerHTML=`<input type="radio" name="ans"> ${opt}`;
-      oEl.appendChild(l);
+  const q = questions[(step - 1) % questions.length];
+  const title = document.createElement("h2");
+  title.innerText = q.text;
+  container.appendChild(title);
+
+  if (q.type === "radio") {
+    q.options.forEach(opt => {
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="radio" name="ans" value="${opt}"> ${opt}`;
+      container.appendChild(label);
+      container.appendChild(document.createElement("br"));
     });
-    document.querySelectorAll("input").forEach(r=>r.onchange=()=>btn.disabled=false);
   }
 
-  if(q.type === "multi"){
-    q.options.forEach(opt=>{
-      const l=document.createElement("label");
-      l.innerHTML=`<input type="checkbox"> ${opt}`;
-      oEl.appendChild(l);
-    });
-    btn.disabled = false;
+  if (q.type === "text") {
+    container.innerHTML += `<textarea rows="4" cols="40"></textarea>`;
   }
 
-  if(q.type === "text" || q.type === "text10"){
-    const t=document.createElement("textarea");
-    oEl.appendChild(t);
-    t.oninput=()=>btn.disabled=false;
+  if (q.type === "slider") {
+    container.innerHTML += `<input type="range" min="1" max="10">`;
   }
 
-  if(q.type === "slider" || q.type === "trickSlider"){
-    const r=document.createElement("input");
-    r.type="range"; r.min=1; r.max=10; r.value=5;
-    const v=document.createElement("div");
-    v.className="rangeValue";
-    v.textContent="Value: 5";
-    r.oninput=()=>{v.textContent="Value: "+r.value; btn.disabled=false;};
-    oEl.appendChild(r); oEl.appendChild(v);
-  }
-
-  btn.onclick = nextStep;
+  addContinue();
 }
 
-function nextStep(){
-  if(activeTrick){
-    if(activeTrick.type==="trick"){
-      const v=document.querySelector("input:checked").nextSibling.textContent.trim();
-      if(v!==activeTrick.correct){ disqualify("You failed an attention check."); return; }
-    }
-    if(activeTrick.type==="trickSlider"){
-      const v=document.querySelector("input[type=range]").value;
-      if(+v!==activeTrick.correct){ disqualify("You failed an attention check."); return; }
-    }
-  }
+/* =====================
+   CONTINUE
+===================== */
+function addContinue() {
+  const btn = document.createElement("button");
+  btn.innerText = "Continue";
+  btn.onclick = next;
+  document.getElementById("container").appendChild(btn);
+}
 
-  if(step > 0){
-    const q = level2Questions[step - 1];
-    if(q && (q.type==="text"||q.type==="text10")){
-      const input=document.querySelector("textarea").value;
-      if(invalidTextAnswer(input)){
-        disqualify("Invalid response detected.");
-        return;
-      }
-    }
-  }
-
+function next() {
   step++;
-  trickChance = Math.min(trickChance + 0.1, 10);
 
-  if(step > 40){
-    qEl.textContent = "End of Level 2";
-    oEl.innerHTML = "";
-    btn.style.display = "none";
-    return;
+  // LEVEL TRANSITIONS
+  if (level === 0 && step > level0.length) {
+    level = 1;
+    step = 0;
+    trickChance = 2.0;
   }
 
-  load();
+  if (level === 1 && step > 20) {
+    level = 2;
+    step = 0;
+    trickChance = 0.0;
+  }
+
+  if (level >= 1) {
+    // Trick chance scaling
+    if (level === 1 && trickChance < 15) trickChance += 0.01;
+    if (level === 2) trickChance += 0.1;
+  }
+
+  save();
+  render();
 }
 
-/* START LEVEL 2 DIRECTLY FOR NOW */
-level = 0;
-step = 0;
-trickChance = 0.0;
-load();
+/* =====================
+   START GAME
+===================== */
+loadSave();
+render();
 </script>
 
 </body>
