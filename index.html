@@ -1,6 +1,235 @@
 <!DOCTYPE html><!DOCTYPE html>
 <html lang="en">
+<head><!DOCTYPE html>
+<html lang="en">
 <head>
+<meta charset="UTF-8">
+<title>A Game Of Surveys</title>
+
+<style>
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+}
+
+.level {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+}
+
+.trick {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.progress {
+  font-size: 28px;
+  margin-bottom: 20px;
+}
+
+.container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.options label {
+  display: block;
+  margin: 8px;
+  font-size: 18px;
+}
+
+textarea {
+  width: 300px;
+  height: 80px;
+}
+
+button {
+  margin-top: 20px;
+  padding: 10px 25px;
+  font-size: 16px;
+}
+</style>
+</head>
+
+<body>
+
+<div id="levelText" class="level">Level 0: stuff before surveys</div>
+<div id="trickChance" class="trick"></div>
+
+<div class="container">
+  <div id="progress" class="progress"></div>
+  <div id="question"></div>
+  <div id="options" class="options"></div>
+  <button id="continueBtn">Continue</button>
+</div>
+
+<script>
+let level = 0;
+let step = 0;
+let trickChance = 0.1;
+
+const qEl = document.getElementById("question");
+const oEl = document.getElementById("options");
+const btn = document.getElementById("continueBtn");
+const lvlText = document.getElementById("levelText");
+const prog = document.getElementById("progress");
+const trickEl = document.getElementById("trickChance");
+
+const level0 = [
+  { type:"msg", text:"Hello, this survey will take approximately 2.5 minutes to complete, so please answer honestly!!!" },
+  { type:"radio", text:"What is your gender?", options:["Man","Woman"] },
+  { type:"radio", text:"How old are you?", options:["Under 18","25-34","35-44","45-56","57-70","Over 70 years old"] },
+  { type:"radio", text:"What is your job?", options:["Engineer","Firefighter","College"] }
+];
+
+const level1 = [
+  { type:"msg", text:"Hello, this survey will take approximately 7 minutes to complete." },
+  ...Array.from({length:20}, (_,i)=>({
+    type: i===2 ? "text" :
+          i===3 ? "text10" :
+          "radio",
+    text: i===2 ? "What is your master’s degree?" :
+          i===3 ? "What made it good? (at least 10 words)" :
+          `Survey Question ${i+1}`,
+    options:["A","B","C","D"]
+  }))
+];
+
+function disqualify(msg){
+  qEl.textContent = msg;
+  oEl.innerHTML = "";
+  btn.style.display = "none";
+}
+
+function maybeTrick(){
+  const roll = Math.random()*100;
+  if(roll < trickChance){
+    return {
+      type:"trick",
+      text:"TRICK QUESTION: Please select the fourth option (D)",
+      options:["A","B","C","D"],
+      correct:"D"
+    };
+  }
+  return null;
+}
+
+function load(){
+  oEl.innerHTML="";
+  btn.disabled=true;
+
+  if(level===1){
+    trickEl.textContent = `Trick Question Chance: ${trickChance.toFixed(1)}%`;
+    prog.textContent = step===0 ? "0/20" : `${step}/20`;
+  } else {
+    trickEl.textContent="";
+    prog.textContent="";
+  }
+
+  const data = level===0 ? level0 : level1;
+  let q = data[step];
+
+  if(level===1 && step>0){
+    const trick = maybeTrick();
+    if(trick) q = trick;
+  }
+
+  qEl.textContent = q.text;
+
+  if(q.type==="msg"){
+    btn.disabled=false;
+    return;
+  }
+
+  if(q.type==="radio" || q.type==="trick"){
+    q.options.forEach(opt=>{
+      const l=document.createElement("label");
+      l.innerHTML=`<input type="radio" name="a"> ${opt}`;
+      oEl.appendChild(l);
+    });
+    document.querySelectorAll("input").forEach(r=>{
+      r.onchange=()=>btn.disabled=false;
+    });
+  }
+
+  if(q.type==="text"||q.type==="text10"){
+    const t=document.createElement("textarea");
+    oEl.appendChild(t);
+    t.oninput=()=>{
+      if(q.type==="text10"){
+        btn.disabled=t.value.trim().split(/\s+/).length<10;
+      } else {
+        btn.disabled=t.value.trim()==="";
+      }
+    };
+  }
+
+  btn.onclick=()=>{
+    if(q.type==="radio" && q.text==="How old are you?"){
+      const v=document.querySelector("input:checked").nextSibling.textContent.trim();
+      if(v==="57-70"||v==="Over 70 years old"){
+        disqualify("You were disqualified from the survey because you are too old!!!");
+        return;
+      }
+    }
+
+    if(q.type==="trick"){
+      const v=document.querySelector("input:checked").nextSibling.textContent.trim();
+      if(v!==q.correct){
+        disqualify("You failed a trick question.");
+        return;
+      }
+    }
+
+    step++;
+    if(level===0 && step===level0.length){
+      lvlText.style.display="none";
+      qEl.textContent="YOU HAVE QUALIFIED FOR THE REAL SURVEYS!!!";
+      oEl.innerHTML="";
+      btn.onclick=startLevel1;
+      btn.disabled=false;
+      return;
+    }
+
+    if(level===1 && step>0){
+      trickChance=Math.min(trickChance+0.1,2);
+    }
+
+    if(step>=data.length){
+      qEl.textContent="End of Survey";
+      oEl.innerHTML="";
+      btn.style.display="none";
+      return;
+    }
+
+    load();
+  };
+}
+
+function startLevel1(){
+  level=1;
+  step=0;
+  lvlText.textContent="Level 1: The real survey";
+  lvlText.style.display="block";
+  btn.onclick=null;
+  load();
+}
+
+load();
+</script>
+
+</body>
+</html>
+
 <meta charset="UTF-8">
 <title>A Game Of Surveys</title>
 
