@@ -33,15 +33,9 @@ html, body {
 }
 
 textarea { width: 340px; height: 90px; }
+input[type="range"] { width: 300px; }
 
-input[type="range"] {
-  width: 300px;
-}
-
-.rangeValue {
-  margin-top: 10px;
-  font-size: 18px;
-}
+.rangeValue { margin-top: 10px; font-size: 18px; }
 
 button {
   margin-top: 20px;
@@ -78,6 +72,24 @@ const lvlText = document.getElementById("levelText");
 const prog = document.getElementById("progress");
 const trickEl = document.getElementById("trickChance");
 
+/* ===== ANTI-SPAM TEXT VALIDATION ===== */
+function invalidTextAnswer(text, keywords = []) {
+  const clean = text.toLowerCase().trim();
+  if (clean.length < 10) return true;
+
+  if (/^(.)\1{6,}$/.test(clean.replace(/\s+/g, ""))) return true;
+
+  const words = clean.split(/\s+/);
+  const uniqueWords = new Set(words);
+  if (uniqueWords.size <= 2) return true;
+
+  if (keywords.length > 0) {
+    const valid = keywords.some(k => clean.includes(k));
+    if (!valid) return true;
+  }
+  return false;
+}
+
 /* ===== QUESTIONS ===== */
 
 const level0 = [
@@ -94,20 +106,17 @@ const level1Greeting = {
 
 const level1Questions = [
   { type:"radio", text:"Do you enjoy long-term challenges?", options:["Yes","No","Sometimes","Not sure"] },
-  { type:"radio", text:"How often do you set personal goals?", options:["Often","Sometimes","Rarely","Never"] },
-  { type:"text", text:"What motivates you to succeed?" },
+  { type:"text", text:"What motivates you to succeed?", keywords:["motivate","goal","success","work","drive"] },
   { type:"radio", text:"Do you prefer structure or freedom?", options:["Structure","Freedom","Both","Neither"] },
-  { type:"radio", text:"Do you enjoy learning new skills?", options:["Yes","No","Depends","Sometimes"] },
+  { type:"text10", text:"Describe a challenge you overcame.", keywords:["challenge","problem","hard","difficult","overcome"] },
   { type:"radio", text:"Do deadlines stress you?", options:["Yes","No","Sometimes","Always"] },
-  { type:"text10", text:"Describe a challenge you overcame (10+ words)." },
   { type:"radio", text:"Do you work better alone or in teams?", options:["Alone","Teams","Both","Neither"] },
   { type:"radio", text:"Do you consider yourself patient?", options:["Yes","No","Somewhat","Not sure"] },
-
-  /* QUESTION 10 — SLIDER */
-  { type:"slider", text:"Was it hard to achieve!?" },
-
   { type:"radio", text:"Do you plan ahead?", options:["Yes","No","Sometimes","Rarely"] },
   { type:"radio", text:"Do you like problem solving?", options:["Yes","No","Sometimes","Not sure"] },
+
+  { type:"slider", text:"Was it hard to achieve!?" },
+
   { type:"radio", text:"Do you reflect on past mistakes?", options:["Often","Sometimes","Rarely","Never"] },
   { type:"radio", text:"Do you handle pressure well?", options:["Yes","No","Depends","Not sure"] },
   { type:"radio", text:"Do you prefer stability?", options:["Yes","No","Sometimes","Not sure"] },
@@ -115,32 +124,33 @@ const level1Questions = [
   { type:"radio", text:"Do you adapt quickly?", options:["Yes","No","Sometimes","Not sure"] },
   { type:"radio", text:"Do you seek feedback?", options:["Often","Sometimes","Rarely","Never"] },
   { type:"radio", text:"Do you trust your decisions?", options:["Yes","No","Sometimes","Not sure"] },
-  { type:"radio", text:"Do you enjoy complex tasks?", options:["Yes","No","Sometimes","Not sure"] }
+  { type:"radio", text:"Do you enjoy complex tasks?", options:["Yes","No","Sometimes","Not sure"] },
+  { type:"radio", text:"Do you follow routines?", options:["Yes","No","Sometimes","Rarely"] },
+  { type:"radio", text:"Do you like improving skills?", options:["Yes","No","Sometimes","Not sure"] }
 ];
 
 /* ===== TRICKS ===== */
 
 const trickTexts = [
   "This is a different question people may encounter. Please select option “{X}”.",
-  "Attention check: choose option “{X}” to continue.",
-  "Verification question: select “{X}”."
+  "Attention check: choose option “{X}”.",
+  "Verification step: click option “{X}”."
 ];
 
 function rollTrickOnce() {
   if (Math.random() * 100 >= trickChance) return null;
 
-  // 20% slider trick, 80% letter trick
   if (Math.random() < 0.2) {
-    const target = Math.floor(Math.random()*10)+1;
+    const target = Math.floor(Math.random() * 10) + 1;
     return {
       type:"trickSlider",
       text:`Please slide to the number ${target} (1 to 10) to verify your eyes.`,
       correct: target
     };
   } else {
-    const letters=["A","B","C","D"];
-    const correct=letters[Math.floor(Math.random()*4)];
-    const text=trickTexts[Math.floor(Math.random()*trickTexts.length)]
+    const letters = ["A","B","C","D"];
+    const correct = letters[Math.floor(Math.random()*4)];
+    const text = trickTexts[Math.floor(Math.random()*trickTexts.length)]
       .replace("{X}", correct);
     return { type:"trick", text, options:letters, correct };
   }
@@ -149,9 +159,14 @@ function rollTrickOnce() {
 /* ===== CORE ===== */
 
 function disqualify(msg){
-  qEl.textContent=msg;
-  oEl.innerHTML="";
-  btn.style.display="none";
+  localStorage.clear();
+  level = 0;
+  step = 0;
+  trickChance = 2.0;
+  qEl.textContent = msg;
+  oEl.innerHTML = "";
+  btn.style.display = "none";
+  setTimeout(()=>location.reload(),2000);
 }
 
 function load(){
@@ -199,11 +214,7 @@ function load(){
   if(q.type==="text"||q.type==="text10"){
     const t=document.createElement("textarea");
     oEl.appendChild(t);
-    t.oninput=()=>{
-      btn.disabled = q.type==="text10"
-        ? t.value.trim().split(/\s+/).length<10
-        : t.value.trim()==="";
-    };
+    t.oninput=()=>btn.disabled=false;
   }
 
   if(q.type==="slider"||q.type==="trickSlider"){
@@ -228,6 +239,17 @@ function nextStep(){
     if(activeTrick.type==="trickSlider"){
       const v=document.querySelector("input[type=range]").value;
       if(+v!==activeTrick.correct){ disqualify("You failed a trick question."); return; }
+    }
+  }
+
+  if(level===1 && step>0){
+    const q=level1Questions[step-1];
+    if(q.type==="text"||q.type==="text10"){
+      const input=document.querySelector("textarea").value;
+      if(invalidTextAnswer(input,q.keywords||[])){
+        disqualify("Invalid or irrelevant answer detected.");
+        return;
+      }
     }
   }
 
