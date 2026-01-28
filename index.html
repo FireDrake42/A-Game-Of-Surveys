@@ -32,15 +32,26 @@ body {
 }
 
 #container {
-  max-width: 600px;
+  max-width: 700px;
   margin: 120px auto;
   text-align: center;
 }
 
 button {
-  margin-top: 20px;
-  padding: 10px 25px;
+  margin-top: 25px;
+  padding: 10px 30px;
   font-size: 16px;
+  cursor: pointer;
+}
+
+textarea {
+  width: 90%;
+  height: 80px;
+}
+
+label {
+  display: block;
+  margin: 6px;
 }
 </style>
 </head>
@@ -50,7 +61,6 @@ button {
 <div id="topLeft"></div>
 <div id="topRight"></div>
 <div id="progress"></div>
-
 <div id="container"></div>
 
 <script>
@@ -62,7 +72,7 @@ let step = 0;
 let trickChance = 2.0;
 
 /* =====================
-   UTILITIES
+   SAVE / LOAD
 ===================== */
 function save() {
   localStorage.setItem("surveySave", JSON.stringify({ level, step, trickChance }));
@@ -77,34 +87,84 @@ function loadSave() {
   }
 }
 
+/* =====================
+   DISQUALIFY
+===================== */
 function disqualify(msg) {
-  document.body.innerHTML = `<h1 style="text-align:center;margin-top:100px;">${msg}</h1>`;
   localStorage.clear();
+  document.body.innerHTML =
+    `<h1 style="text-align:center;margin-top:120px;">${msg}</h1>`;
 }
 
 /* =====================
-   LEVEL DEFINITIONS
+   LEVEL DATA
 ===================== */
 
-// LEVEL 0 (QUALIFIER)
+// LEVEL 0
 const level0 = [
   { type:"radio", text:"What is your gender?", options:["Man","Woman"] },
   { type:"radio", text:"How old are you?", options:["Under 18","18-24","25-34","35-44","45-56","57-70","Over 70"] },
   { type:"radio", text:"What is your job?", options:["Engineer","Firefighter","College"] }
 ];
 
-// LEVEL 1 (NORMAL SURVEY – 20)
+// LEVEL 1 — 20 QUESTIONS
 const level1 = [
-  { type:"text", text:"What motivates you to succeed?" },
-  { type:"slider", text:"How difficult was it to achieve your goals?" },
-  { type:"radio", text:"Do you enjoy challenges?", options:["Yes","No","Sometimes","Not sure"] }
+  { type:"text", text:"What motivates you to succeed in life?" },
+  { type:"radio", text:"Do you enjoy long-term goals?", options:["Yes","No","Sometimes","Not sure"] },
+  { type:"slider", text:"How hard was it to reach your biggest goal? (1–10)" },
+  { type:"text", text:"Describe a challenge you recently faced." },
+  { type:"radio", text:"Do you prefer working alone or with others?", options:["Alone","With others","Both","Depends"] },
+  { type:"slider", text:"How organized are you? (1–10)" },
+  { type:"text", text:"What does success mean to you?" },
+  { type:"radio", text:"Do you enjoy problem solving?", options:["Yes","No","Sometimes","Not sure"] },
+  { type:"slider", text:"How stressful is your daily routine? (1–10)" },
+  { type:"slider", text:"Was it hard to achieve your goals? (1–10)" },
+  { type:"text", text:"What helps you stay focused?" },
+  { type:"radio", text:"Do you plan ahead often?", options:["Always","Sometimes","Rarely","Never"] },
+  { type:"slider", text:"How motivated do you feel daily? (1–10)" },
+  { type:"text", text:"What is something you want to improve about yourself?" },
+  { type:"radio", text:"Do deadlines motivate you?", options:["Yes","No","Sometimes","Stress me"] },
+  { type:"slider", text:"How confident are you in your decisions? (1–10)" },
+  { type:"text", text:"Describe a moment you felt proud of yourself." },
+  { type:"radio", text:"Do you enjoy learning new things?", options:["Yes","No","Sometimes","Depends"] },
+  { type:"slider", text:"How satisfied are you with your progress? (1–10)" },
+  { type:"text", text:"What keeps you moving forward when things get difficult?" }
 ];
 
-// LEVEL 2 (MIXING – 40)
+// LEVEL 2 — 40 QUESTIONS (MIXING)
 const level2 = [
-  { type:"text", text:"Describe a difficult decision you made." },
-  { type:"slider", text:"How stressful was it? (1–10)" },
-  { type:"radio", text:"Do you prefer structure?", options:["Yes","No","Sometimes","Unsure"] }
+  { type:"text", text:"Describe a difficult decision you had to make." },
+  { type:"slider", text:"How stressful was that decision? (1–10)" },
+  { type:"radio", text:"Do you prefer routine?", options:["Yes","No","Sometimes","Not sure"] },
+  { type:"text", text:"What motivates you during hard times?" },
+  { type:"slider", text:"How adaptable are you? (1–10)" },
+  { type:"radio", text:"Do unexpected events frustrate you?", options:["Yes","No","Sometimes","Depends"] },
+  { type:"text", text:"What does stability mean to you?" },
+  { type:"slider", text:"How confident are you under pressure? (1–10)" },
+  { type:"radio", text:"Do you enjoy taking risks?", options:["Yes","No","Sometimes","Rarely"] },
+  { type:"text", text:"Describe a failure that taught you something." },
+
+  { type:"slider", text:"How hard is it for you to stay focused? (1–10)" },
+  { type:"radio", text:"Do you prefer planning or improvising?", options:["Planning","Improvising","Both","Neither"] },
+  { type:"text", text:"What makes a task feel meaningful?" },
+  { type:"slider", text:"How mentally demanding is your work? (1–10)" },
+  { type:"radio", text:"Do you enjoy responsibility?", options:["Yes","No","Sometimes","Depends"] },
+  { type:"text", text:"What keeps you calm in stressful situations?" },
+  { type:"slider", text:"How often do you feel overwhelmed? (1–10)" },
+  { type:"radio", text:"Do you enjoy problem-solving?", options:["Yes","No","Sometimes","Rarely"] },
+  { type:"text", text:"What helps you recover after setbacks?" },
+  { type:"slider", text:"How motivated do you feel right now? (1–10)" },
+
+  { type:"radio", text:"Do you trust your instincts?", options:["Yes","No","Sometimes","Not sure"] },
+  { type:"text", text:"Describe a goal you are currently working toward." },
+  { type:"slider", text:"How clear are your goals? (1–10)" },
+  { type:"radio", text:"Do you prefer structure?", options:["Yes","No","Sometimes","Depends"] },
+  { type:"text", text:"What drives you to complete tasks?" },
+  { type:"slider", text:"How disciplined are you? (1–10)" },
+  { type:"radio", text:"Do you reflect on your decisions?", options:["Often","Sometimes","Rarely","Never"] },
+  { type:"text", text:"What do you value most in personal growth?" },
+  { type:"slider", text:"How satisfied are you with your direction in life? (1–10)" },
+  { type:"radio", text:"Do challenges excite you?", options:["Yes","No","Sometimes","Depends"] }
 ];
 
 /* =====================
@@ -120,52 +180,39 @@ function render() {
     : "Level 2: Mixing";
 
   document.getElementById("topRight").innerText =
-    level === 0 ? ""
-    : `Trick Question Chance: ${trickChance.toFixed(2)}%`;
+    level === 0 ? "" : `Trick Question Chance: ${trickChance.toFixed(2)}%`;
 
-  let questions =
-    level === 0 ? level0 :
-    level === 1 ? level1 :
-    level2;
-
-  let total =
-    level === 0 ? questions.length :
-    level === 1 ? 20 :
-    40;
+  const questions = level === 0 ? level0 : level === 1 ? level1 : level2;
+  const total = level === 0 ? questions.length : level === 1 ? 20 : 40;
 
   document.getElementById("progress").innerText =
     level === 0 ? "" : `${step}/${total}`;
 
-  // Greeting screens
+  // Greeting screen
   if (step === 0) {
-    const greet = document.createElement("p");
-    greet.innerText =
+    container.innerHTML = `<p>${
       level === 0
         ? "Hello, this survey will take approximately 2.5 minutes."
         : level === 1
         ? "Hello, this survey will take approximately 7 minutes."
-        : "Hi, this survey will take you approximately 15min!";
-    container.appendChild(greet);
+        : "Hi, this survey will take you approximately 15min!"
+    }</p>`;
     addContinue();
     return;
   }
 
-  const q = questions[(step - 1) % questions.length];
-  const title = document.createElement("h2");
-  title.innerText = q.text;
-  container.appendChild(title);
+  const q = questions[step - 1];
+  container.innerHTML += `<h2>${q.text}</h2>`;
 
   if (q.type === "radio") {
-    q.options.forEach(opt => {
-      const label = document.createElement("label");
-      label.innerHTML = `<input type="radio" name="ans" value="${opt}"> ${opt}`;
-      container.appendChild(label);
-      container.appendChild(document.createElement("br"));
+    q.options.forEach(o => {
+      container.innerHTML +=
+        `<label><input type="radio" name="ans"> ${o}</label>`;
     });
   }
 
   if (q.type === "text") {
-    container.innerHTML += `<textarea rows="4" cols="40"></textarea>`;
+    container.innerHTML += `<textarea></textarea>`;
   }
 
   if (q.type === "slider") {
@@ -188,23 +235,12 @@ function addContinue() {
 function next() {
   step++;
 
-  // LEVEL TRANSITIONS
   if (level === 0 && step > level0.length) {
-    level = 1;
-    step = 0;
-    trickChance = 2.0;
+    level = 1; step = 0; trickChance = 2.0;
   }
 
   if (level === 1 && step > 20) {
-    level = 2;
-    step = 0;
-    trickChance = 0.0;
-  }
-
-  if (level >= 1) {
-    // Trick chance scaling
-    if (level === 1 && trickChance < 15) trickChance += 0.01;
-    if (level === 2) trickChance += 0.1;
+    level = 2; step = 0; trickChance = 0.0;
   }
 
   save();
@@ -212,7 +248,7 @@ function next() {
 }
 
 /* =====================
-   START GAME
+   START
 ===================== */
 loadSave();
 render();
