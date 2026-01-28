@@ -57,9 +57,9 @@ button {
 <script>
 /* ===== STATE ===== */
 let level = 0;
-let step = 0;                 // includes greeting
-let trickChance = 0.1;
-let activeTrick = null;       // STORED trick for current question
+let step = 0;
+let trickChance = 2.0; // START 2%
+let activeTrick = null;
 
 /* ===== ELEMENTS ===== */
 const qEl = document.getElementById("question");
@@ -93,25 +93,40 @@ const level1Questions = Array.from({ length: 20 }, (_, i) => {
   };
 });
 
-/* ===== FUNCTIONS ===== */
+/* ===== TRICK QUESTION LOGIC ===== */
+
+const trickPrompts = [
+  "This is a different question that people may encounter. Please select option “{X}” in the list below.",
+  "Attention check: choose option “{X}” to continue.",
+  "This question is not like the others. Select “{X}”.",
+  "Verification step: click option “{X}”."
+];
+
+function rollTrickOnce() {
+  const roll = Math.random() * 100;
+  if (roll < trickChance) {
+    const letters = ["A","B","C","D"];
+    const correct = letters[Math.floor(Math.random()*4)];
+    const text = trickPrompts[
+      Math.floor(Math.random()*trickPrompts.length)
+    ].replace("{X}", correct);
+
+    return {
+      type:"trick",
+      text,
+      options: letters,
+      correct
+    };
+  }
+  return null;
+}
+
+/* ===== CORE ===== */
 
 function disqualify(msg) {
   qEl.textContent = msg;
   oEl.innerHTML = "";
   btn.style.display = "none";
-}
-
-function rollTrickOnce() {
-  const roll = Math.random() * 100;
-  if (roll < trickChance) {
-    return {
-      type:"trick",
-      text:"This question is a little different from the ones that you have right now. Please select “D”.",
-      options:["A","B","C","D"],
-      correct:"D"
-    };
-  }
-  return null;
 }
 
 function load() {
@@ -121,14 +136,13 @@ function load() {
 
   if (level === 1) {
     prog.textContent = step === 0 ? "0/20" : `${step}/20`;
-    trickEl.textContent = `Trick Question Chance: ${trickChance.toFixed(1)}%`;
+    trickEl.textContent = `Trick Question Chance: ${trickChance.toFixed(2)}%`;
   } else {
     prog.textContent = "";
     trickEl.textContent = "";
   }
 
   let q;
-
   if (level === 0) {
     q = level0[step];
   } else {
@@ -155,20 +169,18 @@ function load() {
       l.innerHTML = `<input type="radio" name="ans"> ${opt}`;
       oEl.appendChild(l);
     });
-    document.querySelectorAll("input").forEach(r => {
-      r.onchange = () => btn.disabled = false;
+    document.querySelectorAll("input").forEach(r=>{
+      r.onchange=()=>btn.disabled=false;
     });
   }
 
   if (q.type === "text" || q.type === "text10") {
-    const t = document.createElement("textarea");
+    const t=document.createElement("textarea");
     oEl.appendChild(t);
-    t.oninput = () => {
-      if (q.type === "text10") {
-        btn.disabled = t.value.trim().split(/\s+/).length < 10;
-      } else {
-        btn.disabled = t.value.trim() === "";
-      }
+    t.oninput=()=>{
+      btn.disabled = q.type==="text10"
+        ? t.value.trim().split(/\s+/).length < 10
+        : t.value.trim()==="";
     };
   }
 
@@ -187,22 +199,22 @@ function nextStep() {
   step++;
 
   if (level === 0 && step === level0.length) {
-    lvlText.style.display = "none";
-    qEl.textContent = "YOU HAVE QUALIFIED FOR THE REAL SURVEYS!!!";
-    oEl.innerHTML = "";
-    btn.disabled = false;
-    btn.onclick = startLevel1;
+    lvlText.style.display="none";
+    qEl.textContent="YOU HAVE QUALIFIED FOR THE REAL SURVEYS!!!";
+    oEl.innerHTML="";
+    btn.disabled=false;
+    btn.onclick=startLevel1;
     return;
   }
 
   if (level === 1 && step > 0) {
-    trickChance = Math.min(trickChance + 0.1, 2.0);
+    trickChance = Math.min(trickChance + 0.01, 15.0);
   }
 
   if (level === 1 && step > 20) {
-    qEl.textContent = "End of Survey";
-    oEl.innerHTML = "";
-    btn.style.display = "none";
+    qEl.textContent="End of Survey";
+    oEl.innerHTML="";
+    btn.style.display="none";
     return;
   }
 
@@ -210,11 +222,11 @@ function nextStep() {
 }
 
 function startLevel1() {
-  level = 1;
-  step = 0;
-  lvlText.textContent = "Level 1: The real survey";
-  lvlText.style.display = "block";
-  btn.style.display = "inline-block";
+  level=1;
+  step=0;
+  lvlText.textContent="Level 1: The real survey";
+  lvlText.style.display="block";
+  btn.style.display="inline-block";
   load();
 }
 
