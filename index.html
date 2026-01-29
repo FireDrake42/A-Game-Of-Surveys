@@ -8,14 +8,49 @@
 body {
   margin: 0;
   font-family: Arial, sans-serif;
+  background: white;
 }
-#topLeft { position:absolute; top:10px; left:10px; }
-#topRight { position:absolute; top:10px; right:10px; }
-#progress { text-align:center; font-size:32px; margin-top:40px; }
-#container { max-width:700px; margin:120px auto; text-align:center; }
-button { margin-top:25px; padding:10px 30px; font-size:16px; }
-textarea { width:90%; height:80px; }
-label { display:block; margin:6px; }
+
+#topLeft {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+}
+
+#topRight {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+#progress {
+  text-align: center;
+  font-size: 32px;
+  margin-top: 40px;
+}
+
+#container {
+  max-width: 700px;
+  margin: 120px auto;
+  text-align: center;
+}
+
+button {
+  margin-top: 25px;
+  padding: 10px 30px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+textarea {
+  width: 90%;
+  height: 80px;
+}
+
+label {
+  display: block;
+  margin: 6px;
+}
 </style>
 </head>
 
@@ -40,9 +75,14 @@ let trickChance = 0;
 function save() {
   localStorage.setItem("surveySave", JSON.stringify({ level, step, trickChance }));
 }
+
 function loadSave() {
   const d = JSON.parse(localStorage.getItem("surveySave"));
-  if (d) ({ level, step, trickChance } = d);
+  if (d) {
+    level = d.level;
+    step = d.step;
+    trickChance = d.trickChance;
+  }
 }
 
 /* =====================
@@ -55,7 +95,7 @@ function disqualify(msg) {
 }
 
 /* =====================
-   TEXT VALIDATION (STRICT)
+   TEXT VALIDATION
 ===================== */
 function invalidText(text) {
   const t = text.trim().toLowerCase();
@@ -63,8 +103,7 @@ function invalidText(text) {
   if (/^(.)\1{6,}$/.test(t.replace(/\s/g,""))) return true;
 
   const words = t.split(/\s+/);
-  const unique = new Set(words);
-  if (unique.size < 4) return true;
+  if (new Set(words).size < 4) return true;
 
   const letters = t.replace(/[^a-z]/g,"").length;
   if (letters / t.length < 0.6) return true;
@@ -84,21 +123,38 @@ const level0 = [
 ];
 
 // LEVEL 1 (20)
-const level1 = Array.from({length:20}, (_,i)=>({
-  type: i%3===0?"text":i%3===1?"radio":"slider",
-  text: `Level 1 Question ${i+1}`,
-  options:["Yes","No","Sometimes","Not sure"]
-}));
+const level1 = [
+  { type:"text", text:"What motivates you to succeed in life?" },
+  { type:"radio", text:"Do you enjoy long-term goals?", options:["Yes","No","Sometimes","Not sure"] },
+  { type:"slider", text:"How hard was it to reach your biggest goal? (1–10)" },
+  { type:"text", text:"Describe a challenge you recently faced." },
+  { type:"radio", text:"Do you prefer working alone or with others?", options:["Alone","With others","Both","Depends"] },
+  { type:"slider", text:"How organized are you? (1–10)" },
+  { type:"text", text:"What does success mean to you?" },
+  { type:"radio", text:"Do you enjoy problem solving?", options:["Yes","No","Sometimes","Not sure"] },
+  { type:"slider", text:"How stressful is your daily routine? (1–10)" },
+  { type:"slider", text:"Was it hard to achieve your goals? (1–10)" },
+  { type:"text", text:"What helps you stay focused?" },
+  { type:"radio", text:"Do you plan ahead often?", options:["Always","Sometimes","Rarely","Never"] },
+  { type:"slider", text:"How motivated do you feel daily? (1–10)" },
+  { type:"text", text:"What is something you want to improve about yourself?" },
+  { type:"radio", text:"Do deadlines motivate you?", options:["Yes","No","Sometimes","Stress me"] },
+  { type:"slider", text:"How confident are you in your decisions? (1–10)" },
+  { type:"text", text:"Describe a moment you felt proud of yourself." },
+  { type:"radio", text:"Do you enjoy learning new things?", options:["Yes","No","Sometimes","Depends"] },
+  { type:"slider", text:"How satisfied are you with your progress? (1–10)" },
+  { type:"text", text:"What keeps you moving forward when things get difficult?" }
+];
 
 // LEVEL 2 (40)
 const level2 = Array.from({length:40}, (_,i)=>({
-  type: i%3===0?"text":i%3===1?"radio":"slider",
-  text: `Level 2 Question ${i+1}`,
+  type: i%3===0 ? "text" : i%3===1 ? "radio" : "slider",
+  text: `Mixing Question ${i+1}`,
   options:["A","B","C","D"]
 }));
 
 /* =====================
-   TRICK QUESTION
+   TRICK QUESTIONS
 ===================== */
 function maybeTrick() {
   if (level !== 2) return null;
@@ -107,19 +163,19 @@ function maybeTrick() {
       const letters = ["A","B","C","D"];
       const correct = letters[Math.floor(Math.random()*4)];
       return {
-        type:"radio",
         trick:true,
-        correct,
-        text:`This question is different. Please select "${correct}".`,
-        options:letters
+        type:"radio",
+        text:`This is a different question. Please select "${correct}".`,
+        options:letters,
+        correct
       };
     } else {
       const correct = Math.floor(Math.random()*10)+1;
       return {
-        type:"slider",
         trick:true,
-        correct,
-        text:`Verification check: slide to ${correct}.`
+        type:"slider",
+        text:`Verification check: slide to ${correct}.`,
+        correct
       };
     }
   }
@@ -130,42 +186,52 @@ function maybeTrick() {
    RENDER
 ===================== */
 function render() {
-  const c = document.getElementById("container");
-  c.innerHTML = "";
+  const container = document.getElementById("container");
+  container.innerHTML = "";
 
   document.getElementById("topLeft").innerText =
-    level===0?"Level 0":level===1?"Level 1":"Level 2: Mixing";
+    level===0?"Level 0: Qualification":
+    level===1?"Level 1: Survey":
+    "Level 2: Mixing";
 
   document.getElementById("topRight").innerText =
-    level<2?"":`Trick Chance: ${trickChance.toFixed(2)}%`;
+    level===2 ? `Trick Chance: ${trickChance.toFixed(2)}%` : "";
 
-  const total = level===0?3:level===1?20:40;
+  const total = level===0 ? level0.length : level===1 ? 20 : 40;
   document.getElementById("progress").innerText =
-    level===0?"":`${step}/${total}`;
+    level===0 ? "" : `${step}/${total}`;
 
-  if (step===0) {
-    c.innerHTML = `<p>${
-      level===0?"Hello, this survey will take 2.5 minutes.":
-      level===1?"Hello, this survey will take 7 minutes.":
+  if (step === 0) {
+    container.innerHTML = `<p>${
+      level===0 ? "Hello, this survey will take approximately 2.5 minutes." :
+      level===1 ? "Hello, this survey will take approximately 7 minutes." :
       "Hi, this survey will take approximately 15 minutes."
     }</p>`;
     return addContinue();
   }
 
-  let q = maybeTrick() ||
-    (level===0?level0:level===1?level1:level2)[step-1];
+  const baseQuestions = level===0 ? level0 : level===1 ? level1 : level2;
+  const q = maybeTrick() || baseQuestions[step-1];
 
-  c.innerHTML += `<h2>${q.text}</h2>`;
+  container.dataset.trick = q.trick ? JSON.stringify(q) : "";
+
+  container.innerHTML += `<h2>${q.text}</h2>`;
 
   if (q.type==="radio") {
     q.options.forEach(o=>{
-      c.innerHTML += `<label><input type="radio" name="ans" value="${o}"> ${o}</label>`;
+      container.innerHTML +=
+        `<label><input type="radio" name="ans" value="${o}"> ${o}</label>`;
     });
   }
-  if (q.type==="text") c.innerHTML += `<textarea></textarea>`;
-  if (q.type==="slider") c.innerHTML += `<input type="range" min="1" max="10" value="5">`;
 
-  c.dataset.trick = q.trick ? JSON.stringify(q) : "";
+  if (q.type==="text") {
+    container.innerHTML += `<textarea></textarea>`;
+  }
+
+  if (q.type==="slider") {
+    container.innerHTML += `<input type="range" min="1" max="10" value="5">`;
+  }
+
   addContinue();
 }
 
@@ -173,24 +239,24 @@ function render() {
    CONTINUE
 ===================== */
 function addContinue() {
-  const b=document.createElement("button");
-  b.innerText="Continue";
-  b.onclick=next;
-  container.appendChild(b);
+  const b = document.createElement("button");
+  b.innerText = "Continue";
+  b.onclick = next;
+  document.getElementById("container").appendChild(b);
 }
 
 function next() {
-  const c = document.getElementById("container");
+  const container = document.getElementById("container");
 
-  if (c.dataset.trick) {
-    const t = JSON.parse(c.dataset.trick);
+  if (container.dataset.trick) {
+    const t = JSON.parse(container.dataset.trick);
     if (t.type==="radio") {
-      const v=document.querySelector("input[name=ans]:checked")?.value;
-      if (v!==t.correct) return disqualify("You failed a verification question.");
+      const v = document.querySelector("input[name=ans]:checked")?.value;
+      if (v !== t.correct) return disqualify("You failed a verification question.");
     }
     if (t.type==="slider") {
-      const v=document.querySelector("input[type=range]").value;
-      if (+v!==t.correct) return disqualify("You failed a verification question.");
+      const v = +document.querySelector("input[type=range]").value;
+      if (v !== t.correct) return disqualify("You failed a verification question.");
     }
   }
 
@@ -201,8 +267,8 @@ function next() {
 
   step++;
 
-  if (level===0 && step>3) { level=1; step=0; }
-  if (level===1 && step>20) { level=2; step=0; trickChance=0; }
+  if (level===0 && step > level0.length) { level=1; step=0; }
+  if (level===1 && step > 20) { level=2; step=0; trickChance=0; }
 
   if (level===2) trickChance += 0.25;
 
@@ -211,7 +277,7 @@ function next() {
 }
 
 /* =====================
-   START
+   START GAME
 ===================== */
 loadSave();
 render();
