@@ -85,6 +85,8 @@ let step = 0;
 let trickChance = 0;
 let currentQuestion = null;
 
+/* ---------- QUESTION BANKS ---------- */
+
 const level0 = [
   {type:"radio", text:"What is your gender?", options:["Man","Woman"]},
   {type:"radio", text:"How old are you?", options:["Under 18","18-24","25-34","35-44","45-56","57-70","60+"]},
@@ -95,24 +97,11 @@ const level0 = [
 const level1 = [
   {type:"text", text:"What is your highest education level?"},
   {type:"text", text:"Why did you choose it? (10+ words)"},
-  {type:"radio", text:"Do you enjoy learning?", options:["Yes","No"]},
-  {type:"radio", text:"Do you work full-time?", options:["Yes","No"]},
-  {type:"radio", text:"Do you prefer structure?", options:["Yes","No"]},
-  {type:"radio", text:"Do you like problem solving?", options:["Yes","No"]},
-  {type:"radio", text:"Are deadlines stressful?", options:["Yes","No"]},
-  {type:"radio", text:"Do you multitask often?", options:["Yes","No"]},
-  {type:"radio", text:"Are you goal oriented?", options:["Yes","No"]},
-  {type:"slider", text:"Was it hard to achieve?", min:1, max:10},
-  {type:"radio", text:"Do you plan ahead?", options:["Yes","No"]},
-  {type:"radio", text:"Do you enjoy teamwork?", options:["Yes","No"]},
-  {type:"radio", text:"Are you adaptable?", options:["Yes","No"]},
-  {type:"radio", text:"Do you take risks?", options:["Yes","No"]},
-  {type:"radio", text:"Do you value stability?", options:["Yes","No"]},
-  {type:"radio", text:"Do you like challenges?", options:["Yes","No"]},
-  {type:"radio", text:"Are you detail oriented?", options:["Yes","No"]},
-  {type:"radio", text:"Do you enjoy leadership?", options:["Yes","No"]},
-  {type:"radio", text:"Are you self motivated?", options:["Yes","No"]},
-  {type:"radio", text:"Do you finish what you start?", options:["Yes","No"]}
+  ...Array.from({length:18},(_,i)=>({
+    type:"radio",
+    text:`Opinion question ${i+3}`,
+    options:["Yes","No"]
+  }))
 ];
 
 const level2 = Array.from({length:40}, (_,i)=>({
@@ -127,6 +116,21 @@ const level2 = Array.from({length:40}, (_,i)=>({
   options:["Yes","No"],
   min:1, max:10
 }));
+
+const level4 = Array.from({length:60}, (_,i)=>({
+  type: i%3===0 ? "text" : i%3===1 ? "radio" : "slider",
+  text: [
+    "What keeps you focused long-term?",
+    "Do you feel mentally resilient?",
+    "Rate your stress tolerance.",
+    "How do you recover from failure?",
+    "Do you prefer certainty or risk?"
+  ][i%5],
+  options:["Yes","No"],
+  min:1, max:10
+}));
+
+/* ---------- CORE FUNCTIONS ---------- */
 
 function save() {
   localStorage.setItem("surveySave", JSON.stringify({level,step,trickChance}));
@@ -144,34 +148,26 @@ function disqualify(msg){
 }
 
 function validText(t){
-  const words = t.trim().split(/\s+/);
-  return words.length >= 3 && !/^(.)\1+$/.test(t.replace(/\s/g,""));
+  const words=t.trim().split(/\s+/);
+  return words.length>=3 && !/^(.)\1+$/.test(t.replace(/\s/g,""));
 }
 
 function generateQuestion(){
-  const base = level===1 ? level1 : level2;
+  let base =
+    level===1 ? level1 :
+    level===2 ? level2 :
+    level===4 ? level4 : [];
 
   if(level>=1){
-    const roll = Math.random()*100;
-    if(roll < trickChance){
-      if(Math.random() < 0.5){
+    const roll=Math.random()*100;
+    if(roll<trickChance){
+      if(Math.random()<0.5){
         const letters=["A","B","C","D"];
         const correct=letters[Math.floor(Math.random()*4)];
-        return {
-          trick:true,
-          type:"radio",
-          text:`This is a different question. Please select "${correct}".`,
-          options:letters,
-          correct
-        };
+        return {trick:true,type:"radio",text:`Verification: select "${correct}".`,options:letters,correct};
       } else {
         const correct=Math.floor(Math.random()*10)+1;
-        return {
-          trick:true,
-          type:"slider",
-          text:`Verification check. Please slide to ${correct}.`,
-          min:1,max:10,correct
-        };
+        return {trick:true,type:"slider",text:`Verification: slide to ${correct}.`,min:1,max:10,correct};
       }
     }
   }
@@ -182,30 +178,29 @@ function render(){
   const c=document.getElementById("container");
   c.innerHTML="";
 
-  let total = level===1 ? 20 : level===2 ? 40 : 0;
-  let percent = total ? Math.round((step / total) * 100) : 0;
+  let total = level===1 ? 20 : level===2 ? 40 : level===4 ? 60 : 0;
+  let percent = total ? Math.round((step/total)*100) : 0;
 
   document.getElementById("progressText").innerText =
     total ? `${percent}% Complete` : "";
 
   document.getElementById("progressBarInner").style.width =
-    total ? percent + "%" : "0%";
+    total ? percent+"%" : "0%";
 
   document.getElementById("trick").innerText =
     level>=1 ? `Trick Question Chance: ${trickChance.toFixed(2)}%` : "";
 
   if(step===0){
-    c.innerHTML = `<h2>${
-      level===0
-        ? "Hello, this survey will take approximately 2.5 minutes."
-        : level===1
-        ? "Hello, this survey will take approximately 7 minutes."
-        : "Hi, this survey will take approximately 15 minutes!"
+    c.innerHTML=`<h2>${
+      level===0 ? "Hello, this survey will take approximately 2.5 minutes."
+      : level===1 ? "Hello, this survey will take approximately 7 minutes."
+      : level===2 ? "Hi, this survey will take approximately 15 minutes!"
+      : "Welcome to the final survey. This will take approximately 25 minutes."
     }</h2>`;
     return addContinue();
   }
 
-  if(!currentQuestion) currentQuestion = generateQuestion();
+  if(!currentQuestion) currentQuestion=generateQuestion();
   const q=currentQuestion;
 
   const h=document.createElement("h2");
@@ -216,9 +211,7 @@ function render(){
     q.options.forEach(o=>{
       const r=document.createElement("input");
       r.type="radio"; r.name="q"; r.value=o;
-      c.appendChild(r);
-      c.append(o);
-      c.appendChild(document.createElement("br"));
+      c.appendChild(r); c.append(o); c.appendChild(document.createElement("br"));
     });
   }
 
@@ -250,19 +243,17 @@ function next(){
   if(step>0){
     if(q.type==="radio"){
       const sel=document.querySelector("input[name=q]:checked");
-      if(!sel) return alert("Select one option.");
-      if(q.trick && sel.value!==q.correct) return disqualify("Failed verification.");
-      if(level===0 && sel.value==="60+") return disqualify("You were disqualified due to age.");
+      if(!sel) return alert("Select one.");
+      if(q.trick && sel.value!==q.correct) return disqualify("Verification failed.");
+      if(level===0 && sel.value==="60+") return disqualify("Disqualified by age.");
     }
-
     if(q.type==="text"){
-      const t=document.getElementById("txt").value;
-      if(!validText(t)) return disqualify("Invalid response detected.");
+      if(!validText(document.getElementById("txt").value))
+        return disqualify("Invalid response.");
     }
-
     if(q.type==="slider" && q.trick){
       if(document.getElementById("sl").value!=q.correct)
-        return disqualify("Failed verification.");
+        return disqualify("Verification failed.");
     }
   }
 
@@ -270,8 +261,11 @@ function next(){
   currentQuestion=null;
 
   if(level===0 && step>level0.length){ level=1; step=0; trickChance=2; }
-  else if(level===1){ trickChance+=0.01; if(step>=20){ level=2; step=0; trickChance=0.1; } }
-  else if(level===2){ trickChance+=0.25; }
+  else if(level===1 && step>=20){ level=2; step=0; trickChance=0.1; }
+  else if(level===2 && step>=40){ level=4; step=0; trickChance=0; }
+  else if(level===1) trickChance+=0.01;
+  else if(level===2) trickChance+=0.25;
+  else if(level===4) trickChance+=0.75;
 
   save();
   render();
