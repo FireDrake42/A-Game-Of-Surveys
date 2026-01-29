@@ -5,35 +5,18 @@
 <title>A Game Of Surveys</title>
 
 <style>
-body{
-  font-family:Arial, sans-serif;
-  margin:0;
-  background:#fff;
-}
-#top{
-  display:flex;
-  justify-content:space-between;
-  padding:15px;
-}
+body{font-family:Arial;margin:0}
+#top{display:flex;justify-content:space-between;padding:15px}
 #progressText{font-size:18px}
-#progressOuter{
-  width:320px;height:18px;
-  background:#ddd;border-radius:10px;
-}
-#progressInner{
-  height:100%;width:0%;
-  background:#4caf50;border-radius:10px;
-}
-#container{
-  text-align:center;
-  margin-top:60px;
-}
-.option{margin:8px}
-button{padding:10px 20px;font-size:16px;margin:10px}
+#progressOuter{width:320px;height:18px;background:#ddd;border-radius:10px}
+#progressInner{height:100%;width:0%;background:#4caf50;border-radius:10px}
+#container{text-align:center;margin-top:60px}
+button{padding:10px 20px;margin:8px}
 textarea{width:320px;height:80px}
 input[type=range]{width:300px}
-img{max-width:200px;margin:15px}
-.small{font-size:14px;color:#555}
+img{max-width:200px}
+.warning{color:red;font-weight:bold}
+.small{font-size:14px}
 </style>
 </head>
 
@@ -52,48 +35,44 @@ img{max-width:200px;margin:15px}
 
 <script>
 /* ================= STATE ================= */
-let level = 0;
-let step = 0;
-let trickChance = 2; // persistent
-let clickerScore = 0;
-let currentQuestion = null;
+let level=0, step=0;
+let trickChance=2;
+let currentQuestion=null;
+let inClicker=false;
+let clickerScore=0;
+let clickerPower=1;
 
-/* ================= GROWTH RATE ================= */
-function getGrowthRate(){
-  if(level === 0) return 0;
-  if(level === 1) return 0.1;
-  if(level === 2) return 0.33;
-  if(level === 3) return 1;
-  if(level >= 4) return 5;
-  return 0;
+/* ================= GROWTH ================= */
+function getGrowth(){
+  if(level===0) return 0;
+  if(level===1) return 0.1;
+  if(level===2) return 0.33;
+  if(level===3) return 1;
+  return 5;
 }
 
-/* ================= SAVE / LOAD ================= */
+/* ================= SAVE ================= */
 function save(){
-  localStorage.setItem("surveySave",
-    JSON.stringify({level,step,trickChance,clickerScore})
-  );
+  localStorage.setItem("surveySave",JSON.stringify({
+    level,step,trickChance,clickerScore,clickerPower
+  }));
 }
 function load(){
-  const d = localStorage.getItem("surveySave");
+  const d=localStorage.getItem("surveySave");
   if(!d) return false;
-  try{
-    const s = JSON.parse(d);
-    level = s.level ?? 0;
-    step = s.step ?? 0;
-    trickChance = s.trickChance ?? 2;
-    clickerScore = s.clickerScore ?? 0;
-    return true;
-  }catch{return false;}
+  Object.assign(window,JSON.parse(d));
+  return true;
 }
 function resetAll(){
   localStorage.clear();
-  level=0;step=0;trickChance=2;clickerScore=0;
+  level=0;step=0;trickChance=2;
+  clickerScore=0;clickerPower=1;
+  inClicker=false;
   render();
 }
 
 /* ================= QUESTIONS ================= */
-const level1Questions=[
+const q1=[
  "What motivates you to succeed?",
  "How do you handle stress?",
  "What keeps you disciplined?",
@@ -106,7 +85,7 @@ const level1Questions=[
  "Was it hard to achieve your goals?"
 ];
 
-const level2Questions=[
+const q2=[
  "Describe a difficult challenge you faced.",
  "How do you manage time effectively?",
  "What helps you stay productive?",
@@ -119,44 +98,28 @@ const level2Questions=[
  "What habits help you succeed?"
 ];
 
-/* ================= QUESTION GENERATOR ================= */
+/* ================= QUESTION GENERATION ================= */
 function generateQuestion(){
   if(level>=1 && Math.random()*100 < trickChance){
-
     if(Math.random()<0.10){
+      inClicker=true;
       return {type:"clicker"};
     }
-
     if(Math.random()<0.20){
-      return {
-        type:"image",
-        text:"What is shown in the image?",
-        options:["Corn","Tomato","Egg","Avocado"],
-        correct:"Tomato"
-      };
+      return {type:"image",correct:"Tomato"};
     }
-
     const letters=["A","B","C","D"];
-    const correct=letters[Math.floor(Math.random()*4)];
-    return {
-      type:"letter",
-      text:`This question is different. Please select "${correct}".`,
-      options:letters,
-      correct
-    };
+    const c=letters[Math.floor(Math.random()*4)];
+    return {type:"letter",correct:c};
   }
 
-  const list = level===1 ? level1Questions : level2Questions;
-  const text = list[step];
+  const list=level===1?q1:q2;
+  const text=list[step];
   if(!text) return null;
 
-  if(text.includes("hard")){
-    return {type:"slider",text,min:1,max:10};
-  }
-  if(text.startsWith("Describe")){
-    return {type:"text",text};
-  }
-  return {type:"radio",text,options:["Yes","No"]};
+  if(text.includes("hard")) return {type:"slider",text};
+  if(text.startsWith("Describe")) return {type:"text",text};
+  return {type:"radio",text};
 }
 
 /* ================= RENDER ================= */
@@ -167,55 +130,63 @@ function render(){
   const trick=document.getElementById("trickInfo");
   const growth=document.getElementById("growthInfo");
 
-  growth.textContent = `Growth Rate: +${getGrowthRate()}% per question`;
+  growth.textContent=`Growth Rate: +${getGrowth()}% per question`;
 
   if(level===0){
     c.innerHTML=`
       <h2>Hello!</h2>
-      <p>This survey will take approximately 7 minutes.</p>
+      <p>This survey takes ~7 minutes.</p>
       <button onclick="level=1;step=0;render()">Start</button>
-      <br><button onclick="load()?render():alert('No save found')">Resume</button>
+      <button onclick="load()?render():alert('No save')">Resume</button>
     `;
-    p.textContent="";
-    trick.textContent="";
-    bar.style.width="0%";
+    p.textContent="";bar.style.width="0%";trick.textContent="";
     return;
   }
 
-  const total = level===1 ? level1Questions.length : level2Questions.length;
+  const total=level===1?q1.length:q2.length;
   p.textContent=`${step}/${total}`;
   bar.style.width=(step/total*100)+"%";
-  trick.textContent=`Trick Chance: ${trickChance.toFixed(2)}%`;
 
-  currentQuestion = generateQuestion();
+  trick.innerHTML = trickChance>=50
+    ? `<span class="warning">⚠ Trick Chance: ${trickChance.toFixed(2)}%</span>`
+    : `Trick Chance: ${trickChance.toFixed(2)}%`;
 
-  if(!currentQuestion){
-    level++;
-    step=0;
-    render();
-    return;
-  }
-
-  if(currentQuestion.type==="clicker"){
+  if(inClicker){
     c.innerHTML=`
       <h2>Verification Challenge</h2>
-      <p>Reach 1,000,000 points</p>
-      <h3>${clickerScore.toLocaleString()}</h3>
+      <h3>${clickerScore.toLocaleString()} / 1,000,000</h3>
       <button onclick="clicker()">Click Me</button>
-      ${clickerScore>=1000000?'<br><button onclick="finish()">Continue Survey</button>':''}
+      <br>
+      <button onclick="buy(1,1000)">+1 (1,000)</button>
+      <button onclick="buy(10,10000)">+10 (10,000)</button>
+      <button onclick="buy(100,100000)">+100 (100,000)</button>
+      ${clickerScore>=1000000?'<br><button onclick="finishClicker()">Continue</button>':''}
     `;
     save();
     return;
   }
 
-  if(currentQuestion.type==="image" || currentQuestion.type==="letter"){
+  currentQuestion=generateQuestion();
+  if(!currentQuestion){
+    level++;step=0;render();return;
+  }
+
+  if(currentQuestion.type==="image"){
     c.innerHTML=`
-      <h2>${currentQuestion.text}</h2>
-      ${currentQuestion.type==="image"?'<img src="tomato.png">':""}
-      ${currentQuestion.options.map(o=>`
-        <div class="option">
-          <input type="radio" name="a" value="${o}"> ${o}
-        </div>`).join("")}
+      <h2>What is shown?</h2>
+      <img src="tomato.png"><br>
+      ${["Corn","Tomato","Egg","Avocado"].map(o=>`
+        <div><input type="radio" name="a" value="${o}">${o}</div>`).join("")}
+      <button onclick="submit()">Continue</button>
+    `;
+    return;
+  }
+
+  if(currentQuestion.type==="letter"){
+    c.innerHTML=`
+      <h2>Please select "${currentQuestion.correct}"</h2>
+      ${["A","B","C","D"].map(o=>`
+        <div><input type="radio" name="a" value="${o}">${o}</div>`).join("")}
       <button onclick="submit()">Continue</button>
     `;
     return;
@@ -241,46 +212,50 @@ function render(){
 
   c.innerHTML=`
     <h2>${currentQuestion.text}</h2>
-    ${currentQuestion.options.map(o=>`
-      <div class="option">
-        <input type="radio" name="a" value="${o}"> ${o}
-      </div>`).join("")}
+    ${["Yes","No"].map(o=>`
+      <div><input type="radio" name="a" value="${o}">${o}</div>`).join("")}
     <button onclick="submit()">Continue</button>
   `;
 }
 
 /* ================= LOGIC ================= */
 function submit(){
-  if(currentQuestion.type==="letter" || currentQuestion.type==="image"){
+  let isTrick = ["letter","image"].includes(currentQuestion.type);
+
+  if(isTrick){
     const v=document.querySelector("input[name=a]:checked");
     if(!v || v.value!==currentQuestion.correct){
-      resetAll(); alert("Disqualified");
-      return;
+      alert("Disqualified");resetAll();return;
     }
   }
 
   if(currentQuestion.type==="text"){
-    const t=document.getElementById("t").value.trim();
-    if(t.split(/\s+/).length<5){
-      resetAll(); alert("Invalid answer");
-      return;
+    if(document.getElementById("t").value.trim().split(/\s+/).length<5){
+      alert("Invalid");resetAll();return;
     }
   }
 
   step++;
-  trickChance = Math.min(trickChance + getGrowthRate(), 100);
+  let g=getGrowth();
+  trickChance=Math.min(trickChance + (isTrick?g/100:g),100);
   save();
   render();
 }
 
+/* ================= CLICKER ================= */
 function clicker(){
-  clickerScore += 1;
-  save();
-  render();
+  clickerScore+=clickerPower;
+  save();render();
 }
-
-function finish(){
-  clickerScore = 0;
+function buy(p,c){
+  if(clickerScore<c) return;
+  clickerScore-=c;
+  clickerPower+=p;
+  save();render();
+}
+function finishClicker(){
+  inClicker=false;
+  clickerScore=0;
   step++;
   save();
   render();
