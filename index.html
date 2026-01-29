@@ -3,38 +3,62 @@
 <head>
 <meta charset="UTF-8">
 <title>A Game Of Surveys</title>
+
 <style>
 body {
   margin: 0;
   font-family: Arial, sans-serif;
   background: white;
 }
+
 #top {
   display: flex;
   justify-content: space-between;
   padding: 10px;
+  align-items: center;
 }
-#progress {
-  font-size: 28px;
-  font-weight: bold;
+
+#progressText {
+  font-size: 18px;
+  margin-bottom: 4px;
 }
+
+#progressBarOuter {
+  width: 100%;
+  height: 18px;
+  background: #eee;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+#progressBarInner {
+  height: 100%;
+  width: 0%;
+  background: #4caf50;
+  transition: width 0.3s ease;
+}
+
 #trick {
   font-size: 14px;
 }
+
 #container {
   text-align: center;
   margin-top: 80px;
 }
+
 button {
   margin: 10px;
   padding: 10px 20px;
   font-size: 16px;
 }
+
 input[type=text] {
   width: 60%;
   padding: 8px;
   font-size: 16px;
 }
+
 input[type=range] {
   width: 60%;
 }
@@ -42,8 +66,14 @@ input[type=range] {
 </head>
 
 <body>
+
 <div id="top">
-  <div id="progress"></div>
+  <div style="width:70%">
+    <div id="progressText"></div>
+    <div id="progressBarOuter">
+      <div id="progressBarInner"></div>
+    </div>
+  </div>
   <div id="trick"></div>
 </div>
 
@@ -114,7 +144,8 @@ function disqualify(msg){
 }
 
 function validText(t){
-  return t.trim().split(/\s+/).length >= 3 && !/^(.)\1+$/.test(t.replace(/\s/g,""));
+  const words = t.trim().split(/\s+/);
+  return words.length >= 3 && !/^(.)\1+$/.test(t.replace(/\s/g,""));
 }
 
 function generateQuestion(){
@@ -123,7 +154,7 @@ function generateQuestion(){
   if(level>=1){
     const roll = Math.random()*100;
     if(roll < trickChance){
-      if(Math.random()<0.5){
+      if(Math.random() < 0.5){
         const letters=["A","B","C","D"];
         const correct=letters[Math.floor(Math.random()*4)];
         return {
@@ -150,26 +181,33 @@ function generateQuestion(){
 function render(){
   const c=document.getElementById("container");
   c.innerHTML="";
-  document.getElementById("progress").innerText =
-    level===0 ? "" :
-    level===1 ? `${step}/20` :
-    `${step}/40`;
+
+  let total = level===1 ? 20 : level===2 ? 40 : 0;
+  let percent = total ? Math.round((step / total) * 100) : 0;
+
+  document.getElementById("progressText").innerText =
+    total ? `${percent}% Complete` : "";
+
+  document.getElementById("progressBarInner").style.width =
+    total ? percent + "%" : "0%";
+
   document.getElementById("trick").innerText =
     level>=1 ? `Trick Question Chance: ${trickChance.toFixed(2)}%` : "";
 
   if(step===0){
-    c.innerHTML=`<h2>${
-      level===0 ?
-      "Hello, this survey will take approximately 2.5 minutes." :
-      level===1 ?
-      "Hello, this survey will take approximately 7 minutes." :
-      "Hi, this survey will take approximately 15min!"
+    c.innerHTML = `<h2>${
+      level===0
+        ? "Hello, this survey will take approximately 2.5 minutes."
+        : level===1
+        ? "Hello, this survey will take approximately 7 minutes."
+        : "Hi, this survey will take approximately 15 minutes!"
     }</h2>`;
     return addContinue();
   }
 
-  if(!currentQuestion) currentQuestion=generateQuestion();
+  if(!currentQuestion) currentQuestion = generateQuestion();
   const q=currentQuestion;
+
   const h=document.createElement("h2");
   h.innerText=q.text;
   c.appendChild(h);
@@ -178,19 +216,24 @@ function render(){
     q.options.forEach(o=>{
       const r=document.createElement("input");
       r.type="radio"; r.name="q"; r.value=o;
-      c.appendChild(r); c.append(o); c.appendChild(document.createElement("br"));
+      c.appendChild(r);
+      c.append(o);
+      c.appendChild(document.createElement("br"));
     });
   }
+
   if(q.type==="text"){
     const t=document.createElement("input");
     t.type="text"; t.id="txt";
     c.appendChild(t);
   }
+
   if(q.type==="slider"){
     const s=document.createElement("input");
     s.type="range"; s.min=q.min; s.max=q.max; s.value=q.min; s.id="sl";
     c.appendChild(s);
   }
+
   addContinue();
 }
 
@@ -203,20 +246,23 @@ function addContinue(){
 
 function next(){
   const q=currentQuestion;
+
   if(step>0){
     if(q.type==="radio"){
       const sel=document.querySelector("input[name=q]:checked");
-      if(!sel) return alert("Select one");
-      if(q.trick && sel.value!==q.correct) return disqualify("Failed trick question");
-      if(level===0 && sel.value==="60+") return disqualify("Too old");
+      if(!sel) return alert("Select one option.");
+      if(q.trick && sel.value!==q.correct) return disqualify("Failed verification.");
+      if(level===0 && sel.value==="60+") return disqualify("You were disqualified due to age.");
     }
+
     if(q.type==="text"){
       const t=document.getElementById("txt").value;
-      if(!validText(t)) return disqualify("Invalid text");
+      if(!validText(t)) return disqualify("Invalid response detected.");
     }
+
     if(q.type==="slider" && q.trick){
       if(document.getElementById("sl").value!=q.correct)
-        return disqualify("Failed verification");
+        return disqualify("Failed verification.");
     }
   }
 
