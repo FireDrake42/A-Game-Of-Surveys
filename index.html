@@ -5,17 +5,34 @@
 <title>A Game Of Surveys</title>
 
 <style>
-body{font-family:Arial;margin:0;background:#fff}
-#top{display:flex;justify-content:space-between;padding:15px}
+body{
+  font-family: Arial, sans-serif;
+  margin:0;
+  background:#fff;
+}
+#top{
+  display:flex;
+  justify-content:space-between;
+  padding:15px;
+}
 #progressText{font-size:18px}
-#progressBarOuter{width:320px;height:18px;background:#eee;border-radius:10px}
-#progressBarInner{height:100%;width:0%;background:#4caf50}
-#container{text-align:center;margin-top:80px}
-.option{display:block;margin:8px auto}
+#progressOuter{
+  width:300px;height:18px;
+  background:#ddd;border-radius:10px;
+}
+#progressInner{
+  height:100%;width:0%;
+  background:#4caf50;border-radius:10px;
+}
+#container{
+  text-align:center;
+  margin-top:60px;
+}
+.option{margin:8px}
 button{padding:10px 20px;font-size:16px;margin:10px}
-textarea{width:320px}
+textarea{width:320px;height:80px}
 input[type=range]{width:300px}
-img{max-width:200px;margin:15px 0}
+img{max-width:200px;margin:15px}
 </style>
 </head>
 
@@ -24,236 +41,252 @@ img{max-width:200px;margin:15px 0}
 <div id="top">
   <div>
     <div id="progressText"></div>
-    <div id="progressBarOuter"><div id="progressBarInner"></div></div>
+    <div id="progressOuter"><div id="progressInner"></div></div>
   </div>
-  <div id="trick"></div>
+  <div id="trickInfo"></div>
 </div>
 
 <div id="container"></div>
 
 <script>
-/* ================= STATE ================= */
-let level=0, step=0, trickChance=0, currentQuestion=null;
+/* ================= GLOBAL STATE ================= */
+let level = 0;
+let step = 0;
+let trickChance = 2; // starts at 2%
+let currentQuestion = null;
+let clickerScore = 0;
 
-/* ================= STORAGE ================= */
-function saveProgress(){
-  localStorage.setItem("surveySave",JSON.stringify({level,step,trickChance}));
+/* ================= SAVE / LOAD ================= */
+function save(){
+  localStorage.setItem("surveySave",
+    JSON.stringify({level,step,trickChance,clickerScore})
+  );
 }
-function clearProgress(){
-  localStorage.removeItem("surveySave");
-}
-function loadProgress(){
-  const s=localStorage.getItem("surveySave");
-  if(!s) return false;
+function load(){
+  const d = localStorage.getItem("surveySave");
+  if(!d) return false;
   try{
-    const d=JSON.parse(s);
-    level=d.level??0;
-    step=d.step??0;
-    trickChance=d.trickChance??0;
+    const s = JSON.parse(d);
+    level = s.level ?? 0;
+    step = s.step ?? 0;
+    trickChance = s.trickChance ?? 2;
+    clickerScore = s.clickerScore ?? 0;
     return true;
   }catch{return false;}
 }
+function resetAll(){
+  localStorage.clear();
+  level=0;step=0;trickChance=2;clickerScore=0;
+  render();
+}
 
 /* ================= QUESTIONS ================= */
-const level0=[
- {type:"radio",text:"What is your gender?",options:["Man","Woman"]},
- {type:"radio",text:"How old are you?",options:["Under 18","18-24","25-34","35-44","45-56","57-70","70+"]},
- {type:"radio",text:"What is your job?",options:["Engineer","Firefighter","College"]}
+const level1Questions = [
+ "What motivates you to succeed?",
+ "How do you handle stress?",
+ "What makes a task feel rewarding?",
+ "How do you stay focused?",
+ "How do you overcome failure?",
+ "What inspires improvement?",
+ "Do you prefer routine or variety?",
+ "How adaptable are you?",
+ "What keeps you disciplined?",
+ "Was it hard to achieve your goals?"
 ];
 
-const level1=[
- {type:"text",text:"What is your master’s degree?"},
- {type:"text",text:"What made it good? (10+ words)"},
- ...Array.from({length:18},(_,i)=>({
-   type:"radio",
-   text:`Survey Question ${i+3}`,
-   options:["A","B","C","D"]
- }))
+const level2Questions = [
+ "Describe a difficult challenge you faced.",
+ "How do you manage time effectively?",
+ "What helps you stay productive?",
+ "How do you handle pressure?",
+ "What distracts you most?",
+ "How do you stay organized?",
+ "What improves your performance?",
+ "How do you overcome frustration?",
+ "How do you balance work and rest?",
+ "What habits help you succeed?"
 ];
 
-const level2=Array.from({length:40},(_,i)=>(
- i===9
- ?{type:"slider",text:"Was it hard to achieve?",min:1,max:10}
- :{type:"text",text:`Mixing Question ${i+1}`}
-));
-
-const level4=Array.from({length:60},(_,i)=>({
- type:"text",text:`Final Survey Question ${i+1}`
-}));
-
-/* ================= GENERATOR ================= */
+/* ================= QUESTION GENERATOR ================= */
 function generateQuestion(){
- const base=level===0?level0:level===1?level1:level===2?level2:level===4?level4:[];
- if(level>=1 && Math.random()*100<trickChance){
+  // Trick question chance
+  if(level>=1 && Math.random()*100 < trickChance){
+    // 10% clicker
+    if(Math.random()<0.10){
+      return {type:"clicker"};
+    }
+    // 20% image trick
+    if(Math.random()<0.20){
+      return {
+        type:"image",
+        text:"What is shown in the image?",
+        options:["Corn","Tomato","Egg","Avocado"],
+        correct:"Tomato"
+      };
+    }
+    // Letter trick
+    const letters=["A","B","C","D"];
+    const correct=letters[Math.floor(Math.random()*4)];
+    return {
+      type:"letter",
+      text:`Verification check: Please select "${correct}".`,
+      options:letters,
+      correct
+    };
+  }
 
-   // 🎮 10% CLICKER
-   if(Math.random()<0.10){
-     return{trick:true,type:"clicker",text:"Verification challenge: Reach 1,000,000 points to continue."};
-   }
+  const list = level===1 ? level1Questions : level2Questions;
+  const text = list[step];
+  if(!text) return null;
 
-   // 🖼️ 20% IMAGE
-   if(Math.random()<0.20){
-     return{
-       trick:true,type:"image",
-       text:"Image verification: What is shown?",
-       image:"tomato.png",
-       options:["Corn","Tomato","Egg","Avocado"],
-       correct:"Tomato"
-     };
-   }
-
-   // 🔤 / 🎚️ OTHER
-   if(Math.random()<0.5){
-     const letters=["A","B","C","D"];
-     const correct=letters[Math.floor(Math.random()*4)];
-     return{trick:true,type:"radio",text:`This is a different question. Please select "${correct}".`,options:letters,correct};
-   }else{
-     const correct=Math.floor(Math.random()*10)+1;
-     return{trick:true,type:"slider",text:`Verification check. Slide to ${correct}.`,min:1,max:10,correct};
-   }
- }
- return base[step]||null;
+  if(text.includes("hard")){
+    return {type:"slider",text,min:1,max:10};
+  }
+  if(text.includes("Describe")){
+    return {type:"text",text};
+  }
+  return {type:"radio",text,options:["Yes","No"]};
 }
 
 /* ================= RENDER ================= */
 function render(){
- const total=level===1?20:level===2?40:level===4?60:0;
- const percent=total?Math.round(step/total*100):0;
+  const c = document.getElementById("container");
+  const p = document.getElementById("progressText");
+  const bar = document.getElementById("progressInner");
+  const trick = document.getElementById("trickInfo");
 
- progressText.innerText=total?`${percent}% Complete`:"";
- progressBarInner.style.width=total?`${percent}%`:"0%";
- trick.innerText=level>=1?`Trick Question Chance: ${trickChance.toFixed(2)}%`:"";
+  if(level===0){
+    c.innerHTML = `
+      <h2>Hello!</h2>
+      <p>This survey will take ~7 minutes.</p>
+      <button onclick="level=1;step=0;render()">Start</button>
+      <br><button onclick="load()?render():alert('No save')">Resume</button>
+    `;
+    p.textContent="";
+    trick.textContent="";
+    bar.style.width="0%";
+    return;
+  }
 
- if(total && step>=total){
-   container.innerHTML=`<h2>Level ${level} Complete</h2>
-   <button onclick="nextLevel()">Continue</button>`;
-   return;
- }
+  const total = level===1 ? 20 : 40;
+  p.textContent = `${step}/${total}`;
+  bar.style.width = (step/total*100)+"%";
+  trick.textContent = `Trick Chance: ${trickChance.toFixed(2)}%`;
 
- currentQuestion=generateQuestion();
- if(!currentQuestion){
-   container.innerHTML=`<h2>Ready for Level ${level+1}</h2>
-   <button onclick="nextLevel()">Continue</button>`;
-   return;
- }
+  currentQuestion = generateQuestion();
+  if(!currentQuestion){
+    level++;
+    step=0;
+    trickChance=level===2?0.1:2;
+    render();
+    return;
+  }
 
- /* 🎮 CLICKER */
- if(currentQuestion.type==="clicker"){
-   let score=+localStorage.getItem("clickerScore")||0;
-   let power=+localStorage.getItem("clickerPower")||1;
-   container.innerHTML=`
-     <h2>${currentQuestion.text}</h2>
-     <h3>Score: ${score.toLocaleString()}</h3>
-     <button onclick="clickerClick()">Click Me</button><br><br>
-     <button onclick="buyUpgrade(1,1000)">+1 / click (1k)</button>
-     <button onclick="buyUpgrade(10,10000)">+10 / click (10k)</button>
-     <button onclick="buyUpgrade(100,100000)">+100 / click (100k)</button>
-   `;
-   if(score>=1000000){
-     container.innerHTML+=`<br><button onclick="finishClicker()">Continue Survey</button>`;
-   }
-   return;
- }
+  // CLICKER
+  if(currentQuestion.type==="clicker"){
+    c.innerHTML = `
+      <h2>Verification Challenge</h2>
+      <p>Reach 1,000,000 points</p>
+      <h3>${clickerScore.toLocaleString()}</h3>
+      <button onclick="clicker()">Click Me</button>
+      ${clickerScore>=1000000?'<br><button onclick="finish()">Continue</button>':''}
+    `;
+    save();
+    return;
+  }
 
- container.innerHTML=`<h2>${currentQuestion.text}</h2>`;
+  // IMAGE
+  if(currentQuestion.type==="image"){
+    c.innerHTML = `
+      <h2>${currentQuestion.text}</h2>
+      <img src="tomato.png">
+      ${currentQuestion.options.map(o=>`
+        <div><input type="radio" name="a" value="${o}">${o}</div>
+      `).join("")}
+      <button onclick="submit()">Continue</button>
+    `;
+    return;
+  }
 
- if(currentQuestion.type==="image"){
-   container.innerHTML+=`<img src="${currentQuestion.image}">`;
- }
+  // LETTER
+  if(currentQuestion.type==="letter"){
+    c.innerHTML = `
+      <h2>${currentQuestion.text}</h2>
+      ${currentQuestion.options.map(o=>`
+        <div><input type="radio" name="a" value="${o}">${o}</div>
+      `).join("")}
+      <button onclick="submit()">Continue</button>
+    `;
+    return;
+  }
 
- if(currentQuestion.type==="radio"||currentQuestion.type==="image"){
-   currentQuestion.options.forEach(o=>{
-     container.innerHTML+=`
-     <label class="option">
-       <input type="radio" name="q" value="${o}"> ${o}
-     </label>`;
-   });
- }
+  // SLIDER
+  if(currentQuestion.type==="slider"){
+    c.innerHTML = `
+      <h2>${currentQuestion.text}</h2>
+      <input type="range" id="s" min="1" max="10">
+      <button onclick="submit()">Continue</button>
+    `;
+    return;
+  }
 
- if(currentQuestion.type==="text"){
-   container.innerHTML+=`<textarea id="txt" rows="4"></textarea>`;
- }
+  // TEXT
+  if(currentQuestion.type==="text"){
+    c.innerHTML = `
+      <h2>${currentQuestion.text}</h2>
+      <textarea id="t"></textarea>
+      <button onclick="submit()">Continue</button>
+    `;
+    return;
+  }
 
- if(currentQuestion.type==="slider"){
-   container.innerHTML+=`<br><input type="range" id="rng"
-   min="${currentQuestion.min}" max="${currentQuestion.max}">`;
- }
-
- container.innerHTML+=`<br><button onclick="next()">Continue</button>`;
+  // RADIO
+  c.innerHTML = `
+    <h2>${currentQuestion.text}</h2>
+    ${currentQuestion.options.map(o=>`
+      <div><input type="radio" name="a" value="${o}">${o}</div>
+    `).join("")}
+    <button onclick="submit()">Continue</button>
+  `;
 }
 
-/* ================= ACTIONS ================= */
-function next(){
- let val=null;
- if(currentQuestion.type==="radio"||currentQuestion.type==="image"){
-   const r=document.querySelector("input[name=q]:checked");
-   if(!r)return alert("Select an option");
-   val=r.value;
- }
- if(currentQuestion.type==="text"){
-   val=document.getElementById("txt").value.trim();
-   if(val.length<5||val.split(/\s+/).length<3)return disqualify();
- }
- if(currentQuestion.type==="slider"){
-   val=+document.getElementById("rng").value;
- }
- if(currentQuestion.trick&&val!==currentQuestion.correct)return disqualify();
-
- step++;
- if(level===1)trickChance+=0.01;
- if(level===2)trickChance+=0.25;
- if(level===4)trickChance+=1;
-
- saveProgress();
- render();
+/* ================= LOGIC ================= */
+function submit(){
+  // validation
+  if(currentQuestion.type==="letter" || currentQuestion.type==="image"){
+    const v = document.querySelector("input[name=a]:checked");
+    if(!v || v.value!==currentQuestion.correct){
+      resetAll(); alert("Disqualified");
+      return;
+    }
+  }
+  if(currentQuestion.type==="text"){
+    const t=document.getElementById("t").value.trim();
+    if(t.split(" ").length<5){
+      resetAll(); alert("Invalid answer");
+      return;
+    }
+  }
+  step++;
+  trickChance = Math.min(trickChance+0.01,15);
+  save();
+  render();
 }
 
-function nextLevel(){
- level++;
- step=0;
- trickChance=level===1?2:0;
- saveProgress();
- render();
+function clicker(){
+  clickerScore += 1;
+  save();
+  render();
 }
 
-/* 🎮 CLICKER FUNCTIONS */
-function clickerClick(){
- let s=+localStorage.getItem("clickerScore")||0;
- let p=+localStorage.getItem("clickerPower")||1;
- s+=p;
- localStorage.setItem("clickerScore",s);
- render();
-}
-function buyUpgrade(a,c){
- let s=+localStorage.getItem("clickerScore")||0;
- let p=+localStorage.getItem("clickerPower")||1;
- if(s<c)return;
- localStorage.setItem("clickerScore",s-c);
- localStorage.setItem("clickerPower",p+a);
- render();
-}
-function finishClicker(){
- localStorage.removeItem("clickerScore");
- localStorage.removeItem("clickerPower");
- step++;
- saveProgress();
- render();
+function finish(){
+  clickerScore=0;
+  step++;
+  save();
+  render();
 }
 
-function disqualify(){
- clearProgress();
- document.body.innerHTML="<h1>You were disqualified.</h1>";
-}
-
-/* ================= START ================= */
-if(loadProgress()){
- container.innerHTML=`
-   <h2>Resume your survey?</h2>
-   <button onclick="render()">Resume</button>
-   <button onclick="clearProgress();location.reload()">Start Over</button>`;
-}else{
- render();
-}
+render();
 </script>
 </body>
 </html>
