@@ -5,17 +5,15 @@
 <title>A Game Of Surveys</title>
 
 <style>
-body{font-family:Arial;margin:0}
-#top{display:flex;justify-content:space-between;padding:15px}
-#progressText{font-size:18px}
-#progressOuter{width:320px;height:18px;background:#ddd;border-radius:10px}
-#progressInner{height:100%;width:0%;background:#4caf50}
-#container{text-align:center;margin-top:50px}
-button{padding:10px 20px;margin:8px}
-textarea{width:340px;height:90px}
-input[type=range]{width:300px}
+body{font-family:Arial;margin:0;background:#fff}
+#top{display:flex;justify-content:space-between;padding:12px}
+#progressOuter{width:300px;height:18px;background:#ddd;border-radius:10px}
+#progressInner{height:100%;width:0%;background:#4caf50;border-radius:10px}
 .warning{color:red;font-weight:bold}
-.small{font-size:14px;color:#555}
+button{padding:10px 20px;margin:10px}
+textarea{width:320px;height:90px}
+input[type=range]{width:300px}
+img{max-width:200px}
 </style>
 </head>
 
@@ -25,194 +23,212 @@ input[type=range]{width:300px}
   <div>
     <div id="progressText"></div>
     <div id="progressOuter"><div id="progressInner"></div></div>
-    <div class="small" id="growthInfo"></div>
+    <div id="growth"></div>
   </div>
-  <div id="trickInfo"></div>
+  <div id="trick"></div>
 </div>
 
 <div id="container"></div>
 
 <script>
 /* ========== STATE ========== */
-let level=0, step=0;
-let trickChance=2;
-let currentQuestion=null;
-let inClicker=false;
-
-/* Clicker */
-let clickerScore=0;
-let clickerPower=1;
-let clickTimes=[];
-
-/* ========== LEVEL CONFIG ========== */
-const levelSizes={1:10,2:20,3:40,4:60};
-
-function getGrowth(){
-  return level===0?0:
-         level===1?0.1:
-         level===2?0.33:
-         level===3?1:5;
-}
+let state={
+ level:0,
+ step:0,
+ trickChance:2,
+ resumed:false,
+ clicker:{
+  score:0,
+  clicks:[],
+  multiplier:1
+ }
+};
 
 /* ========== SAVE / LOAD ========== */
 function save(){
-  localStorage.setItem("surveySave",JSON.stringify({
-    level,step,trickChance,inClicker,
-    clickerScore,clickerPower,clickTimes
-  }));
+ localStorage.setItem("surveySave",JSON.stringify(state));
 }
 function load(){
-  const d=localStorage.getItem("surveySave");
-  if(!d) return false;
-  Object.assign(window,JSON.parse(d));
-  return true;
+ const d=localStorage.getItem("surveySave");
+ if(!d) return false;
+ state=JSON.parse(d);
+ state.resumed=true;
+ return true;
 }
 function resetAll(){
-  localStorage.clear();
-  location.reload();
+ localStorage.clear();
+ location.reload();
+}
+
+/* ========== GROWTH ========== */
+function growthRate(){
+ return [0,0.1,0.33,1,5][state.level]||5;
 }
 
 /* ========== QUESTIONS ========== */
-const baseQuestions=[
- "What does success mean to you?",
- "How do you stay motivated?",
- "How do you deal with failure?",
- "What makes work meaningful?",
- "How do you manage stress?",
- "What keeps you disciplined?",
- "How do you improve yourself?",
- "What motivates long-term goals?",
- "How do you define achievement?",
- "What drives personal growth?"
-];
+function makeQuestions(count){
+ return Array.from({length:count},(_,i)=>`What does success mean to you in question ${i+1}?`);
+}
+const questions={
+ 1:makeQuestions(20),
+ 2:makeQuestions(20),
+ 3:makeQuestions(40),
+ 4:makeQuestions(60)
+};
 
 /* ========== VALIDATION ========== */
-function isRelevant(answer,question){
-  const qWords=question.toLowerCase().split(/\W+/).filter(w=>w.length>3);
-  const a=answer.toLowerCase();
-  let hits=0;
-  qWords.forEach(w=>{if(a.includes(w)) hits++;});
-  return hits>=2 && answer.split(/\s+/).length>=8;
+function validText(t){
+ const words=t.trim().split(/\s+/);
+ if(words.length<10) return false;
+ const unique=new Set(words.map(w=>w.toLowerCase()));
+ if(unique.size<5) return false;
+ return true;
 }
 
-/* ========== QUESTION GENERATION ========== */
-function generateQuestion(){
-  if(level>=1 && Math.random()*100<trickChance){
-    if(Math.random()<0.15){inClicker=true;return {type:"clicker"};}
-    const letters=["A","B","C","D"];
-    const c=letters[Math.floor(Math.random()*4)];
-    return {type:"letter",correct:c};
-  }
-  const q=baseQuestions[step%baseQuestions.length];
-  return {type:"text",text:q};
+/* ========== TRICK ========== */
+function generateTrick(){
+ const r=Math.random();
+ if(r<0.15) return {type:"clicker"};
+ if(r<0.35) return {
+  type:"image",
+  text:"What is shown?",
+  options:["Corn","Tomato","Egg","Avocado"],
+  correct:"Tomato"
+ };
+ const letters=["A","B","C","D"];
+ const c=letters[Math.floor(Math.random()*4)];
+ return {type:"letter",text:`Please select "${c}"`,options:letters,correct:c};
 }
 
 /* ========== RENDER ========== */
 function render(){
-  const c=document.getElementById("container");
-  const p=document.getElementById("progressText");
-  const bar=document.getElementById("progressInner");
-  const trick=document.getElementById("trickInfo");
-  const growth=document.getElementById("growthInfo");
+ const c=document.getElementById("container");
+ const p=document.getElementById("progressText");
+ const bar=document.getElementById("progressInner");
+ const t=document.getElementById("trick");
+ const g=document.getElementById("growth");
 
-  growth.textContent=`Growth Rate: +${getGrowth()}% / question`;
+ g.textContent=`Growth Rate: +${growthRate()}% / question`;
 
-  if(level===0){
-    c.innerHTML=`
-      <h2>Hello!</h2>
-      <p>This survey will take time. Answer honestly.</p>
-      <button onclick="level=1;step=0;render()">Start</button>
-      <button onclick="load()?render():alert('No save')">Resume</button>
-      <br><button onclick="resetAll()">Start Over</button>
-    `;
-    p.textContent="";bar.style.width="0%";trick.textContent="";
-    return;
-  }
+ t.innerHTML=state.trickChance>=50
+  ? `<span class="warning">⚠ Trick Chance ${state.trickChance.toFixed(2)}%</span>`
+  : `Trick Chance: ${state.trickChance.toFixed(2)}%`;
 
-  const total=levelSizes[level];
-  p.textContent=`${step}/${total}`;
-  bar.style.width=(step/total*100)+"%";
-
-  trick.innerHTML=trickChance>=50
-    ? `<span class="warning">⚠ Trick Chance: ${trickChance.toFixed(2)}%</span>`
-    : `Trick Chance: ${trickChance.toFixed(2)}%`;
-
-  if(inClicker){renderClicker();return;}
-
-  currentQuestion=generateQuestion();
-  c.innerHTML=currentQuestion.type==="letter"
-    ? `<h2>Select "${currentQuestion.correct}"</h2>
-       ${["A","B","C","D"].map(o=>`<div><input type="radio" name="a" value="${o}">${o}</div>`).join("")}
-       <button onclick="submit()">Continue</button>`
-    : `<h2>${currentQuestion.text}</h2>
-       <textarea id="t"></textarea>
-       <button onclick="submit()">Continue</button>`;
-}
-
-/* ========== CLICKER ========== */
-function renderClicker(){
-  const c=document.getElementById("container");
-  const cps=getCPS();
-  if(cps>=15){alert("Auto-click detected");resetAll();return;}
-
+ if(state.level===0 && !state.resumed){
   c.innerHTML=`
-    <h2>Verification Challenge</h2>
-    <div>${clickerScore.toLocaleString()} / 1,000,000</div>
-    <div>CPS: ${cps.toFixed(2)}</div>
-    <div style="width:300px;height:14px;background:#ddd;margin:auto">
-      <div style="width:${Math.min(clickerScore/1000000*100,100)}%;height:100%;background:#4caf50"></div>
-    </div>
-    <button onclick="click()">Click Me</button>
-    <br>
-    <button onclick="buy(1,1000)">+1 (1k)</button>
-    <button onclick="buy(10,10000)">+10 (10k)</button>
-    <button onclick="buy(100,100000)">+100 (100k)</button>
-    ${clickerScore>=1000000?'<br><button onclick="finishClicker()">Continue</button>':''}
+   <h2>Hello</h2>
+   <p>This survey takes ~7 minutes</p>
+   <button onclick="state.level=1;render()">Start</button>
+   <button onclick="load()?render():alert('No save')">Resume</button>
   `;
+  return;
+ }
+
+ const total=questions[state.level]?.length||0;
+ p.textContent=`${state.step}/${total}`;
+ bar.style.width=(state.step/total*100)+"%";
+
+ if(state.step>=total){
+  state.level++;
+  state.step=0;
   save();
-}
-function click(){
-  const now=Date.now();
-  clickTimes.push(now);
-  clickTimes=clickTimes.filter(t=>now-t<1000);
-  clickerScore+=clickerPower;
-  save();render();
-}
-function getCPS(){
-  const now=Date.now();
-  clickTimes=clickTimes.filter(t=>now-t<1000);
-  return clickTimes.length;
-}
-function buy(p,c){
-  if(clickerScore<c) return;
-  clickerScore-=c;
-  clickerPower+=p;
-  save();render();
-}
-function finishClicker(){
-  inClicker=false;
-  clickerScore=0;clickerPower=1;clickTimes=[];
-  step++;applyGrowth(true);
   render();
+  return;
+ }
+
+ if(state.level>=1 && Math.random()*100<state.trickChance){
+  const trick=generateTrick();
+  renderTrick(trick);
+  return;
+ }
+
+ const q=questions[state.level][state.step];
+ c.innerHTML=`
+  <h2>${q}</h2>
+  <textarea id="txt"></textarea>
+  <button onclick="submitText()">Continue</button>
+ `;
 }
 
 /* ========== SUBMIT ========== */
-function submit(){
-  if(currentQuestion.type==="letter"){
-    const v=document.querySelector("input[name=a]:checked");
-    if(!v||v.value!==currentQuestion.correct){resetAll();return;}
-    step++;applyGrowth(true);render();return;
-  }
-  const a=document.getElementById("t").value.trim();
-  if(!isRelevant(a,currentQuestion.text)){resetAll();return;}
-  step++;applyGrowth(false);
-  if(step>=levelSizes[level]){level++;step=0;}
-  render();
+function submitText(){
+ const t=document.getElementById("txt").value;
+ if(!validText(t)){
+  alert("Invalid answer");
+  resetAll();
+  return;
+ }
+ advance(false);
 }
-function applyGrowth(isTrick){
-  const g=getGrowth();
-  trickChance=Math.min(trickChance+(isTrick?g/100:g),100);
-  save();
+
+/* ========== ADVANCE ========== */
+function advance(isTrick){
+ const inc=isTrick?growthRate()/100:growthRate();
+ state.trickChance=Math.min(100,state.trickChance+inc);
+ state.step++;
+ save();
+ render();
+}
+
+/* ========== CLICKER ========== */
+function renderTrick(trick){
+ const c=document.getElementById("container");
+
+ if(trick.type==="clicker"){
+  c.innerHTML=`
+   <h2>Verification Challenge</h2>
+   <div>Score: ${state.clicker.score}</div>
+   <div id="cps"></div>
+   <div style="width:300px;background:#ddd">
+    <div style="height:16px;background:#4caf50;width:${Math.min(100,state.clicker.score/10000)}%"></div>
+   </div>
+   <button onclick="click()">Click Me</button>
+   <button onclick="upgrade()">Upgrade (x2)</button>
+   ${state.clicker.score>=1e6?'<button onclick="finishClicker()">Continue</button>':''}
+  `;
+  return;
+ }
+
+ c.innerHTML=`
+  <h2>${trick.text}</h2>
+  ${trick.type==="image"?'<img src="tomato.png">':''}
+  ${trick.options.map(o=>`
+   <div><input type="radio" name="a" value="${o}">${o}</div>`).join("")}
+  <button onclick="submitTrick('${trick.correct}')">Continue</button>
+ `;
+}
+
+function click(){
+ const now=Date.now();
+ state.clicker.clicks.push(now);
+ state.clicker.clicks=state.clicker.clicks.filter(t=>now-t<1000);
+ const cps=state.clicker.clicks.length;
+ document.getElementById("cps").textContent=`CPS: ${cps}`;
+ if(cps>=15){
+  alert("Cheating detected");
+  resetAll();
+ }
+ state.clicker.score+=state.clicker.multiplier;
+ save();
+ render();
+}
+function upgrade(){
+ state.clicker.multiplier=2;
+ save();
+ render();
+}
+function finishClicker(){
+ state.clicker={score:0,clicks:[],multiplier:1};
+ advance(true);
+}
+function submitTrick(correct){
+ const v=document.querySelector("input[name=a]:checked");
+ if(!v||v.value!==correct){
+  alert("Disqualified");
+  resetAll();
+  return;
+ }
+ advance(true);
 }
 
 render();
