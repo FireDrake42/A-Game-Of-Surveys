@@ -5,46 +5,16 @@
 <title>A Game Of Surveys</title>
 
 <style>
-body{
-  font-family: Arial, sans-serif;
-  margin:0;
-  background:#fff;
-}
-#top{
-  display:flex;
-  justify-content:space-between;
-  padding:15px;
-}
-#progressText{
-  font-size:18px;
-}
-#progressBarOuter{
-  width:300px;
-  height:18px;
-  background:#eee;
-  border-radius:10px;
-  overflow:hidden;
-}
-#progressBarInner{
-  height:100%;
-  width:0%;
-  background:#4caf50;
-  transition:width .3s;
-}
-#container{
-  text-align:center;
-  margin-top:80px;
-}
-button{
-  padding:10px 20px;
-  font-size:16px;
-  margin-top:20px;
-}
-.option{
-  display:block;
-  margin:8px auto;
-}
-input[type=range]{ width:300px; }
+body{font-family:Arial;margin:0;background:white}
+#top{display:flex;justify-content:space-between;padding:15px}
+#progressText{font-size:18px}
+#progressBarOuter{width:320px;height:18px;background:#eee;border-radius:10px}
+#progressBarInner{height:100%;width:0%;background:#4caf50}
+#container{text-align:center;margin-top:80px}
+.option{display:block;margin:8px auto}
+button{padding:10px 20px;font-size:16px;margin-top:20px}
+textarea{width:300px}
+input[type=range]{width:300px}
 </style>
 </head>
 
@@ -53,9 +23,7 @@ input[type=range]{ width:300px; }
 <div id="top">
   <div>
     <div id="progressText"></div>
-    <div id="progressBarOuter">
-      <div id="progressBarInner"></div>
-    </div>
+    <div id="progressBarOuter"><div id="progressBarInner"></div></div>
   </div>
   <div id="trick"></div>
 </div>
@@ -63,153 +31,143 @@ input[type=range]{ width:300px; }
 <div id="container"></div>
 
 <script>
-let level=0;
-let step=0;
-let trickChance=0;
-let currentQuestion=null;
+let level=0,step=0,trickChance=0,currentQuestion=null;
 
 /* ---------------- QUESTIONS ---------------- */
 
 const level0=[
-  {type:"radio",text:"What is your gender?",options:["Man","Woman"]},
-  {type:"radio",text:"How old are you?",options:["Under 18","18-24","25-34","35-44","45-56","57-70","70+"]},
-  {type:"radio",text:"What is your job?",options:["Engineer","Firefighter","College"]}
+ {type:"radio",text:"What is your gender?",options:["Man","Woman"]},
+ {type:"radio",text:"How old are you?",options:["Under 18","18-24","25-34","35-44","45-56","57-70","70+"]},
+ {type:"radio",text:"What is your job?",options:["Engineer","Firefighter","College"]}
 ];
 
 const level1=[
-  {type:"text",text:"What is your master’s degree?"},
-  {type:"text",text:"What made it good? (10+ words)"},
-  ...Array.from({length:18},(_,i)=>({type:"radio",text:`Survey Question ${i+3}`,options:["A","B","C","D"]}))
+ {type:"text",text:"What is your master’s degree?"},
+ {type:"text",text:"What made it good? (10+ words)"},
+ ...Array.from({length:18},(_,i)=>({
+   type:"radio",
+   text:`Survey Question ${i+3}`,
+   options:["A","B","C","D"]
+ }))
 ];
 
 const level2=Array.from({length:40},(_,i)=>(
-  i===9
-  ? {type:"slider",text:"Was it hard to achieve?",min:1,max:10}
-  : {type:"text",text:`Mixing Question ${i+1}`}
+ i===9
+ ?{type:"slider",text:"Was it hard to achieve?",min:1,max:10}
+ :{type:"text",text:`Mixing Question ${i+1}`}
 ));
 
-const level4=Array.from({length:60},(_,i)=>({type:"text",text:`Final Survey Question ${i+1}`}));
+const level4=Array.from({length:60},(_,i)=>({
+ type:"text",text:`Final Survey Question ${i+1}`
+}));
 
-/* ---------------- LOGIC ---------------- */
+/* ---------------- CORE ---------------- */
 
 function generateQuestion(){
-  let base =
-    level===0 ? level0 :
-    level===1 ? level1 :
-    level===2 ? level2 :
-    level===4 ? level4 : [];
-
-  if(level>=1){
-    if(Math.random()*100 < trickChance){
-      if(Math.random()<0.5){
-        const letters=["A","B","C","D"];
-        const correct=letters[Math.floor(Math.random()*4)];
-        return {
-          trick:true,
-          type:"radio",
-          text:`This is a different question. Please select "${correct}".`,
-          options:letters,
-          correct
-        };
-      }else{
-        const correct=Math.floor(Math.random()*10)+1;
-        return {
-          trick:true,
-          type:"slider",
-          text:`Verification check. Please slide to ${correct}.`,
-          min:1,max:10,correct
-        };
-      }
-    }
-  }
-  return base[step-1] || null;
+ let base=level===0?level0:level===1?level1:level===2?level2:level===4?level4:[];
+ if(level>=1 && Math.random()*100<trickChance){
+   if(Math.random()<0.5){
+     const letters=["A","B","C","D"];
+     const correct=letters[Math.floor(Math.random()*4)];
+     return{trick:true,type:"radio",text:`This is a different question. Please select "${correct}".`,options:letters,correct};
+   }else{
+     const correct=Math.floor(Math.random()*10)+1;
+     return{trick:true,type:"slider",text:`Verification check. Slide to ${correct}.`,min:1,max:10,correct};
+   }
+ }
+ return base[step]||null;
 }
 
 function render(){
-  const total = level===1?20:level===2?40:level===4?60:0;
-  const percent = total?Math.round(step/total*100):0;
+ const total=level===1?20:level===2?40:level===4?60:0;
+ const percent=total?Math.round(step/total*100):0;
 
-  document.getElementById("progressText").innerText =
-    total?`${percent}% Complete`:"";
+ progressText.innerText=total?`${percent}% Complete`:"";
+ progressBarInner.style.width=total?`${percent}%`:"0%";
+ trick.innerText=level>=1?`Trick Question Chance: ${trickChance.toFixed(2)}%`:"";
 
-  document.getElementById("progressBarInner").style.width =
-    total?`${percent}%`:"0%";
+ const c=container;
 
-  document.getElementById("trick").innerText =
-    level>=1?`Trick Question Chance: ${trickChance.toFixed(2)}%`:"";
+ if(total && step>=total){
+   c.innerHTML=`<h2>Level ${level} Complete</h2>
+   <button onclick="nextLevel()">Continue</button>`;
+   return;
+ }
 
-  currentQuestion=generateQuestion();
-  const c=document.getElementById("container");
+ currentQuestion=generateQuestion();
+ if(!currentQuestion){
+   c.innerHTML=`<h2>Ready for Level ${level+1}</h2>
+   <button onclick="nextLevel()">Continue</button>`;
+   return;
+ }
 
-  if(!currentQuestion){
-    c.innerHTML=`<h2>Level ${level} Complete</h2>
-      <button onclick="nextLevel()">Continue</button>`;
-    return;
-  }
+ c.innerHTML=`<h2>${currentQuestion.text}</h2>`;
 
-  c.innerHTML=`<h2>${currentQuestion.text}</h2>`;
+ if(currentQuestion.type==="radio"){
+   currentQuestion.options.forEach(o=>{
+     c.innerHTML+=`<label class="option">
+     <input type="radio" name="q" value="${o}"> ${o}</label>`;
+   });
+ }
 
-  if(currentQuestion.type==="radio"){
-    currentQuestion.options.forEach(o=>{
-      c.innerHTML+=`<label class="option">
-        <input type="radio" name="q" value="${o}"> ${o}
-      </label>`;
-    });
-  }
+ if(currentQuestion.type==="text"){
+   c.innerHTML+=`<textarea id="txt" rows="4"></textarea>`;
+ }
 
-  if(currentQuestion.type==="text"){
-    c.innerHTML+=`<textarea id="txt" rows="4" cols="40"></textarea>`;
-  }
+ if(currentQuestion.type==="slider"){
+   c.innerHTML+=`<br><input type="range" id="rng" min="${currentQuestion.min}" max="${currentQuestion.max}">`;
+ }
 
-  if(currentQuestion.type==="slider"){
-    c.innerHTML+=`<br><input type="range" id="rng"
-      min="${currentQuestion.min}" max="${currentQuestion.max}">`;
-  }
-
-  c.innerHTML+=`<br><button onclick="next()">Continue</button>`;
+ c.innerHTML+=`<br><button onclick="next()">Continue</button>`;
 }
 
 function next(){
-  let val=null;
+ if(!currentQuestion)return;
 
-  if(currentQuestion.type==="radio"){
-    const r=document.querySelector("input[name=q]:checked");
-    if(!r)return alert("Select an option");
-    val=r.value;
-  }
-  if(currentQuestion.type==="text"){
-    val=document.getElementById("txt").value.trim();
-    if(val.split(/\s+/).length<3)return disqualify();
-  }
-  if(currentQuestion.type==="slider"){
-    val=+document.getElementById("rng").value;
-  }
+ let val=null;
 
-  if(currentQuestion.trick && val!==currentQuestion.correct)
-    return disqualify();
+ if(currentQuestion.type==="radio"){
+   const r=document.querySelector("input[name=q]:checked");
+   if(!r)return alert("Select an option.");
+   val=r.value;
+ }
 
-  step++;
+ if(currentQuestion.type==="text"){
+   const t=document.getElementById("txt");
+   if(!t)return;
+   val=t.value.trim();
+   if(val.length<5||val.split(/\s+/).length<3)return disqualify();
+ }
 
-  if(level===1) trickChance+=0.01;
-  if(level===2) trickChance+=0.25;
-  if(level===4) trickChance+=1;
+ if(currentQuestion.type==="slider"){
+   const s=document.getElementById("rng");
+   if(!s)return;
+   val=parseInt(s.value,10);
+ }
 
-  render();
+ if(currentQuestion.trick && val!==currentQuestion.correct)
+   return disqualify();
+
+ step++;
+
+ if(level===1)trickChance+=0.01;
+ if(level===2)trickChance+=0.25;
+ if(level===4)trickChance+=1;
+
+ render();
 }
 
 function nextLevel(){
-  level++;
-  step=0;
-  trickChance=level===1?2:0;
-  render();
+ level++;
+ step=0;
+ trickChance=level===1?2:0;
+ render();
 }
 
 function disqualify(){
-  localStorage.clear();
-  document.body.innerHTML="<h1>You were disqualified.</h1>";
+ localStorage.clear();
+ document.body.innerHTML="<h1>You were disqualified.</h1>";
 }
-
-/* ---------------- START ---------------- */
 
 render();
 </script>
