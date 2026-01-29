@@ -9,14 +9,13 @@ body{font-family:Arial;margin:0}
 #top{display:flex;justify-content:space-between;padding:15px}
 #progressText{font-size:18px}
 #progressOuter{width:320px;height:18px;background:#ddd;border-radius:10px}
-#progressInner{height:100%;width:0%;background:#4caf50;border-radius:10px}
-#container{text-align:center;margin-top:60px}
+#progressInner{height:100%;width:0%;background:#4caf50}
+#container{text-align:center;margin-top:50px}
 button{padding:10px 20px;margin:8px}
-textarea{width:320px;height:80px}
+textarea{width:340px;height:90px}
 input[type=range]{width:300px}
-img{max-width:200px}
 .warning{color:red;font-weight:bold}
-.small{font-size:14px}
+.small{font-size:14px;color:#555}
 </style>
 </head>
 
@@ -34,27 +33,32 @@ img{max-width:200px}
 <div id="container"></div>
 
 <script>
-/* ================= STATE ================= */
+/* ========== STATE ========== */
 let level=0, step=0;
 let trickChance=2;
 let currentQuestion=null;
 let inClicker=false;
+
+/* Clicker */
 let clickerScore=0;
 let clickerPower=1;
+let clickTimes=[];
 
-/* ================= GROWTH ================= */
+/* ========== LEVEL CONFIG ========== */
+const levelSizes={1:10,2:20,3:40,4:60};
+
 function getGrowth(){
-  if(level===0) return 0;
-  if(level===1) return 0.1;
-  if(level===2) return 0.33;
-  if(level===3) return 1;
-  return 5;
+  return level===0?0:
+         level===1?0.1:
+         level===2?0.33:
+         level===3?1:5;
 }
 
-/* ================= SAVE ================= */
+/* ========== SAVE / LOAD ========== */
 function save(){
   localStorage.setItem("surveySave",JSON.stringify({
-    level,step,trickChance,clickerScore,clickerPower
+    level,step,trickChance,inClicker,
+    clickerScore,clickerPower,clickTimes
   }));
 }
 function load(){
@@ -65,64 +69,45 @@ function load(){
 }
 function resetAll(){
   localStorage.clear();
-  level=0;step=0;trickChance=2;
-  clickerScore=0;clickerPower=1;
-  inClicker=false;
-  render();
+  location.reload();
 }
 
-/* ================= QUESTIONS ================= */
-const q1=[
- "What motivates you to succeed?",
- "How do you handle stress?",
+/* ========== QUESTIONS ========== */
+const baseQuestions=[
+ "What does success mean to you?",
+ "How do you stay motivated?",
+ "How do you deal with failure?",
+ "What makes work meaningful?",
+ "How do you manage stress?",
  "What keeps you disciplined?",
- "How do you recover from failure?",
- "What makes a task rewarding?",
- "How do you stay focused?",
- "What inspires improvement?",
- "Do you prefer routine or variety?",
- "How adaptable are you?",
- "Was it hard to achieve your goals?"
+ "How do you improve yourself?",
+ "What motivates long-term goals?",
+ "How do you define achievement?",
+ "What drives personal growth?"
 ];
 
-const q2=[
- "Describe a difficult challenge you faced.",
- "How do you manage time effectively?",
- "What helps you stay productive?",
- "How do you handle pressure?",
- "What distracts you the most?",
- "How do you stay organized?",
- "What improves your performance?",
- "How do you overcome frustration?",
- "How do you balance work and rest?",
- "What habits help you succeed?"
-];
+/* ========== VALIDATION ========== */
+function isRelevant(answer,question){
+  const qWords=question.toLowerCase().split(/\W+/).filter(w=>w.length>3);
+  const a=answer.toLowerCase();
+  let hits=0;
+  qWords.forEach(w=>{if(a.includes(w)) hits++;});
+  return hits>=2 && answer.split(/\s+/).length>=8;
+}
 
-/* ================= QUESTION GENERATION ================= */
+/* ========== QUESTION GENERATION ========== */
 function generateQuestion(){
-  if(level>=1 && Math.random()*100 < trickChance){
-    if(Math.random()<0.10){
-      inClicker=true;
-      return {type:"clicker"};
-    }
-    if(Math.random()<0.20){
-      return {type:"image",correct:"Tomato"};
-    }
+  if(level>=1 && Math.random()*100<trickChance){
+    if(Math.random()<0.15){inClicker=true;return {type:"clicker"};}
     const letters=["A","B","C","D"];
     const c=letters[Math.floor(Math.random()*4)];
     return {type:"letter",correct:c};
   }
-
-  const list=level===1?q1:q2;
-  const text=list[step];
-  if(!text) return null;
-
-  if(text.includes("hard")) return {type:"slider",text};
-  if(text.startsWith("Describe")) return {type:"text",text};
-  return {type:"radio",text};
+  const q=baseQuestions[step%baseQuestions.length];
+  return {type:"text",text:q};
 }
 
-/* ================= RENDER ================= */
+/* ========== RENDER ========== */
 function render(){
   const c=document.getElementById("container");
   const p=document.getElementById("progressText");
@@ -130,122 +115,73 @@ function render(){
   const trick=document.getElementById("trickInfo");
   const growth=document.getElementById("growthInfo");
 
-  growth.textContent=`Growth Rate: +${getGrowth()}% per question`;
+  growth.textContent=`Growth Rate: +${getGrowth()}% / question`;
 
   if(level===0){
     c.innerHTML=`
       <h2>Hello!</h2>
-      <p>This survey takes ~7 minutes.</p>
+      <p>This survey will take time. Answer honestly.</p>
       <button onclick="level=1;step=0;render()">Start</button>
       <button onclick="load()?render():alert('No save')">Resume</button>
+      <br><button onclick="resetAll()">Start Over</button>
     `;
     p.textContent="";bar.style.width="0%";trick.textContent="";
     return;
   }
 
-  const total=level===1?q1.length:q2.length;
+  const total=levelSizes[level];
   p.textContent=`${step}/${total}`;
   bar.style.width=(step/total*100)+"%";
 
-  trick.innerHTML = trickChance>=50
+  trick.innerHTML=trickChance>=50
     ? `<span class="warning">⚠ Trick Chance: ${trickChance.toFixed(2)}%</span>`
     : `Trick Chance: ${trickChance.toFixed(2)}%`;
 
-  if(inClicker){
-    c.innerHTML=`
-      <h2>Verification Challenge</h2>
-      <h3>${clickerScore.toLocaleString()} / 1,000,000</h3>
-      <button onclick="clicker()">Click Me</button>
-      <br>
-      <button onclick="buy(1,1000)">+1 (1,000)</button>
-      <button onclick="buy(10,10000)">+10 (10,000)</button>
-      <button onclick="buy(100,100000)">+100 (100,000)</button>
-      ${clickerScore>=1000000?'<br><button onclick="finishClicker()">Continue</button>':''}
-    `;
-    save();
-    return;
-  }
+  if(inClicker){renderClicker();return;}
 
   currentQuestion=generateQuestion();
-  if(!currentQuestion){
-    level++;step=0;render();return;
-  }
+  c.innerHTML=currentQuestion.type==="letter"
+    ? `<h2>Select "${currentQuestion.correct}"</h2>
+       ${["A","B","C","D"].map(o=>`<div><input type="radio" name="a" value="${o}">${o}</div>`).join("")}
+       <button onclick="submit()">Continue</button>`
+    : `<h2>${currentQuestion.text}</h2>
+       <textarea id="t"></textarea>
+       <button onclick="submit()">Continue</button>`;
+}
 
-  if(currentQuestion.type==="image"){
-    c.innerHTML=`
-      <h2>What is shown?</h2>
-      <img src="tomato.png"><br>
-      ${["Corn","Tomato","Egg","Avocado"].map(o=>`
-        <div><input type="radio" name="a" value="${o}">${o}</div>`).join("")}
-      <button onclick="submit()">Continue</button>
-    `;
-    return;
-  }
-
-  if(currentQuestion.type==="letter"){
-    c.innerHTML=`
-      <h2>Please select "${currentQuestion.correct}"</h2>
-      ${["A","B","C","D"].map(o=>`
-        <div><input type="radio" name="a" value="${o}">${o}</div>`).join("")}
-      <button onclick="submit()">Continue</button>
-    `;
-    return;
-  }
-
-  if(currentQuestion.type==="slider"){
-    c.innerHTML=`
-      <h2>${currentQuestion.text}</h2>
-      <input type="range" id="s" min="1" max="10">
-      <button onclick="submit()">Continue</button>
-    `;
-    return;
-  }
-
-  if(currentQuestion.type==="text"){
-    c.innerHTML=`
-      <h2>${currentQuestion.text}</h2>
-      <textarea id="t"></textarea>
-      <button onclick="submit()">Continue</button>
-    `;
-    return;
-  }
+/* ========== CLICKER ========== */
+function renderClicker(){
+  const c=document.getElementById("container");
+  const cps=getCPS();
+  if(cps>=15){alert("Auto-click detected");resetAll();return;}
 
   c.innerHTML=`
-    <h2>${currentQuestion.text}</h2>
-    ${["Yes","No"].map(o=>`
-      <div><input type="radio" name="a" value="${o}">${o}</div>`).join("")}
-    <button onclick="submit()">Continue</button>
+    <h2>Verification Challenge</h2>
+    <div>${clickerScore.toLocaleString()} / 1,000,000</div>
+    <div>CPS: ${cps.toFixed(2)}</div>
+    <div style="width:300px;height:14px;background:#ddd;margin:auto">
+      <div style="width:${Math.min(clickerScore/1000000*100,100)}%;height:100%;background:#4caf50"></div>
+    </div>
+    <button onclick="click()">Click Me</button>
+    <br>
+    <button onclick="buy(1,1000)">+1 (1k)</button>
+    <button onclick="buy(10,10000)">+10 (10k)</button>
+    <button onclick="buy(100,100000)">+100 (100k)</button>
+    ${clickerScore>=1000000?'<br><button onclick="finishClicker()">Continue</button>':''}
   `;
-}
-
-/* ================= LOGIC ================= */
-function submit(){
-  let isTrick = ["letter","image"].includes(currentQuestion.type);
-
-  if(isTrick){
-    const v=document.querySelector("input[name=a]:checked");
-    if(!v || v.value!==currentQuestion.correct){
-      alert("Disqualified");resetAll();return;
-    }
-  }
-
-  if(currentQuestion.type==="text"){
-    if(document.getElementById("t").value.trim().split(/\s+/).length<5){
-      alert("Invalid");resetAll();return;
-    }
-  }
-
-  step++;
-  let g=getGrowth();
-  trickChance=Math.min(trickChance + (isTrick?g/100:g),100);
   save();
-  render();
 }
-
-/* ================= CLICKER ================= */
-function clicker(){
+function click(){
+  const now=Date.now();
+  clickTimes.push(now);
+  clickTimes=clickTimes.filter(t=>now-t<1000);
   clickerScore+=clickerPower;
   save();render();
+}
+function getCPS(){
+  const now=Date.now();
+  clickTimes=clickTimes.filter(t=>now-t<1000);
+  return clickTimes.length;
 }
 function buy(p,c){
   if(clickerScore<c) return;
@@ -255,10 +191,28 @@ function buy(p,c){
 }
 function finishClicker(){
   inClicker=false;
-  clickerScore=0;
-  step++;
-  save();
+  clickerScore=0;clickerPower=1;clickTimes=[];
+  step++;applyGrowth(true);
   render();
+}
+
+/* ========== SUBMIT ========== */
+function submit(){
+  if(currentQuestion.type==="letter"){
+    const v=document.querySelector("input[name=a]:checked");
+    if(!v||v.value!==currentQuestion.correct){resetAll();return;}
+    step++;applyGrowth(true);render();return;
+  }
+  const a=document.getElementById("t").value.trim();
+  if(!isRelevant(a,currentQuestion.text)){resetAll();return;}
+  step++;applyGrowth(false);
+  if(step>=levelSizes[level]){level++;step=0;}
+  render();
+}
+function applyGrowth(isTrick){
+  const g=getGrowth();
+  trickChance=Math.min(trickChance+(isTrick?g/100:g),100);
+  save();
 }
 
 render();
