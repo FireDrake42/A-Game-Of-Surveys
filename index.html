@@ -130,7 +130,7 @@ const level4 = Array.from({length:60}, (_,i)=>({
   min:1, max:10
 }));
 
-/* ---------- CORE FUNCTIONS ---------- */
+/* ---------- CORE ---------- */
 
 function save() {
   localStorage.setItem("surveySave", JSON.stringify({level,step,trickChance}));
@@ -148,8 +148,8 @@ function disqualify(msg){
 }
 
 function validText(t){
-  const words=t.trim().split(/\s+/);
-  return words.length>=3 && !/^(.)\1+$/.test(t.replace(/\s/g,""));
+  const words = t.trim().split(/\s+/);
+  return words.length >= 3 && !/^(.)\1+$/.test(t.replace(/\s/g,""));
 }
 
 function generateQuestion(){
@@ -159,15 +159,26 @@ function generateQuestion(){
     level===4 ? level4 : [];
 
   if(level>=1){
-    const roll=Math.random()*100;
-    if(roll<trickChance){
-      if(Math.random()<0.5){
+    const roll = Math.random() * 100;
+    if(roll < trickChance){
+      if(Math.random() < 0.5){
         const letters=["A","B","C","D"];
         const correct=letters[Math.floor(Math.random()*4)];
-        return {trick:true,type:"radio",text:`Verification: select "${correct}".`,options:letters,correct};
+        return {
+          trick:true,
+          type:"radio",
+          text:`This is a different question. Please select "${correct}".`,
+          options:letters,
+          correct
+        };
       } else {
         const correct=Math.floor(Math.random()*10)+1;
-        return {trick:true,type:"slider",text:`Verification: slide to ${correct}.`,min:1,max:10,correct};
+        return {
+          trick:true,
+          type:"slider",
+          text:`Verification check. Please slide to ${correct}.`,
+          min:1,max:10,correct
+        };
       }
     }
   }
@@ -185,13 +196,13 @@ function render(){
     total ? `${percent}% Complete` : "";
 
   document.getElementById("progressBarInner").style.width =
-    total ? percent+"%" : "0%";
+    total ? percent + "%" : "0%";
 
   document.getElementById("trick").innerText =
     level>=1 ? `Trick Question Chance: ${trickChance.toFixed(2)}%` : "";
 
   if(step===0){
-    c.innerHTML=`<h2>${
+    c.innerHTML = `<h2>${
       level===0 ? "Hello, this survey will take approximately 2.5 minutes."
       : level===1 ? "Hello, this survey will take approximately 7 minutes."
       : level===2 ? "Hi, this survey will take approximately 15 minutes!"
@@ -200,7 +211,7 @@ function render(){
     return addContinue();
   }
 
-  if(!currentQuestion) currentQuestion=generateQuestion();
+  if(!currentQuestion) currentQuestion = generateQuestion();
   const q=currentQuestion;
 
   const h=document.createElement("h2");
@@ -211,7 +222,9 @@ function render(){
     q.options.forEach(o=>{
       const r=document.createElement("input");
       r.type="radio"; r.name="q"; r.value=o;
-      c.appendChild(r); c.append(o); c.appendChild(document.createElement("br"));
+      c.appendChild(r);
+      c.append(o);
+      c.appendChild(document.createElement("br"));
     });
   }
 
@@ -243,14 +256,16 @@ function next(){
   if(step>0){
     if(q.type==="radio"){
       const sel=document.querySelector("input[name=q]:checked");
-      if(!sel) return alert("Select one.");
+      if(!sel) return alert("Select one option.");
       if(q.trick && sel.value!==q.correct) return disqualify("Verification failed.");
       if(level===0 && sel.value==="60+") return disqualify("Disqualified by age.");
     }
+
     if(q.type==="text"){
       if(!validText(document.getElementById("txt").value))
         return disqualify("Invalid response.");
     }
+
     if(q.type==="slider" && q.trick){
       if(document.getElementById("sl").value!=q.correct)
         return disqualify("Verification failed.");
@@ -265,7 +280,7 @@ function next(){
   else if(level===2 && step>=40){ level=4; step=0; trickChance=0; }
   else if(level===1) trickChance+=0.01;
   else if(level===2) trickChance+=0.25;
-  else if(level===4) trickChance+=0.75;
+  else if(level===4) trickChance+=1;
 
   save();
   render();
