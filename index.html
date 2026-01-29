@@ -5,7 +5,7 @@
 <title>A Game Of Surveys</title>
 
 <style>
-body{font-family:Arial;margin:0;background:white}
+body{font-family:Arial;margin:0;background:#fff}
 #top{display:flex;justify-content:space-between;padding:15px}
 #progressText{font-size:18px}
 #progressBarOuter{width:320px;height:18px;background:#eee;border-radius:10px}
@@ -13,8 +13,9 @@ body{font-family:Arial;margin:0;background:white}
 #container{text-align:center;margin-top:80px}
 .option{display:block;margin:8px auto}
 button{padding:10px 20px;font-size:16px;margin:10px}
-textarea{width:300px}
+textarea{width:320px}
 input[type=range]{width:300px}
+img{max-width:200px;margin:15px 0}
 </style>
 </head>
 
@@ -31,10 +32,10 @@ input[type=range]{width:300px}
 <div id="container"></div>
 
 <script>
-/* ---------------- STATE ---------------- */
+/* ================= STATE ================= */
 let level=0, step=0, trickChance=0, currentQuestion=null;
 
-/* ---------------- STORAGE ---------------- */
+/* ================= STORAGE ================= */
 function saveProgress(){
   localStorage.setItem("surveySave",JSON.stringify({level,step,trickChance}));
 }
@@ -42,21 +43,18 @@ function clearProgress(){
   localStorage.removeItem("surveySave");
 }
 function loadProgress(){
-  const save=localStorage.getItem("surveySave");
-  if(!save) return false;
+  const s=localStorage.getItem("surveySave");
+  if(!s) return false;
   try{
-    const d=JSON.parse(save);
+    const d=JSON.parse(s);
     level=d.level??0;
     step=d.step??0;
     trickChance=d.trickChance??0;
     return true;
-  }catch{
-    return false;
-  }
+  }catch{return false;}
 }
 
-/* ---------------- QUESTIONS ---------------- */
-
+/* ================= QUESTIONS ================= */
 const level0=[
  {type:"radio",text:"What is your gender?",options:["Man","Woman"]},
  {type:"radio",text:"How old are you?",options:["Under 18","18-24","25-34","35-44","45-56","57-70","70+"]},
@@ -83,11 +81,28 @@ const level4=Array.from({length:60},(_,i)=>({
  type:"text",text:`Final Survey Question ${i+1}`
 }));
 
-/* ---------------- CORE ---------------- */
-
+/* ================= GENERATOR ================= */
 function generateQuestion(){
  const base=level===0?level0:level===1?level1:level===2?level2:level===4?level4:[];
  if(level>=1 && Math.random()*100<trickChance){
+
+   // 🎮 10% CLICKER
+   if(Math.random()<0.10){
+     return{trick:true,type:"clicker",text:"Verification challenge: Reach 1,000,000 points to continue."};
+   }
+
+   // 🖼️ 20% IMAGE
+   if(Math.random()<0.20){
+     return{
+       trick:true,type:"image",
+       text:"Image verification: What is shown?",
+       image:"tomato.png",
+       options:["Corn","Tomato","Egg","Avocado"],
+       correct:"Tomato"
+     };
+   }
+
+   // 🔤 / 🎚️ OTHER
    if(Math.random()<0.5){
      const letters=["A","B","C","D"];
      const correct=letters[Math.floor(Math.random()*4)];
@@ -100,6 +115,7 @@ function generateQuestion(){
  return base[step]||null;
 }
 
+/* ================= RENDER ================= */
 function render(){
  const total=level===1?20:level===2?40:level===4?60:0;
  const percent=total?Math.round(step/total*100):0;
@@ -121,9 +137,31 @@ function render(){
    return;
  }
 
+ /* 🎮 CLICKER */
+ if(currentQuestion.type==="clicker"){
+   let score=+localStorage.getItem("clickerScore")||0;
+   let power=+localStorage.getItem("clickerPower")||1;
+   container.innerHTML=`
+     <h2>${currentQuestion.text}</h2>
+     <h3>Score: ${score.toLocaleString()}</h3>
+     <button onclick="clickerClick()">Click Me</button><br><br>
+     <button onclick="buyUpgrade(1,1000)">+1 / click (1k)</button>
+     <button onclick="buyUpgrade(10,10000)">+10 / click (10k)</button>
+     <button onclick="buyUpgrade(100,100000)">+100 / click (100k)</button>
+   `;
+   if(score>=1000000){
+     container.innerHTML+=`<br><button onclick="finishClicker()">Continue Survey</button>`;
+   }
+   return;
+ }
+
  container.innerHTML=`<h2>${currentQuestion.text}</h2>`;
 
- if(currentQuestion.type==="radio"){
+ if(currentQuestion.type==="image"){
+   container.innerHTML+=`<img src="${currentQuestion.image}">`;
+ }
+
+ if(currentQuestion.type==="radio"||currentQuestion.type==="image"){
    currentQuestion.options.forEach(o=>{
      container.innerHTML+=`
      <label class="option">
@@ -131,44 +169,40 @@ function render(){
      </label>`;
    });
  }
+
  if(currentQuestion.type==="text"){
    container.innerHTML+=`<textarea id="txt" rows="4"></textarea>`;
  }
+
  if(currentQuestion.type==="slider"){
    container.innerHTML+=`<br><input type="range" id="rng"
-     min="${currentQuestion.min}" max="${currentQuestion.max}">`;
+   min="${currentQuestion.min}" max="${currentQuestion.max}">`;
  }
 
  container.innerHTML+=`<br><button onclick="next()">Continue</button>`;
 }
 
+/* ================= ACTIONS ================= */
 function next(){
- if(!currentQuestion) return;
  let val=null;
-
- if(currentQuestion.type==="radio"){
+ if(currentQuestion.type==="radio"||currentQuestion.type==="image"){
    const r=document.querySelector("input[name=q]:checked");
-   if(!r) return alert("Select an option.");
+   if(!r)return alert("Select an option");
    val=r.value;
  }
  if(currentQuestion.type==="text"){
-   const t=document.getElementById("txt");
-   if(!t) return;
-   val=t.value.trim();
-   if(val.length<5||val.split(/\s+/).length<3)
-     return disqualify();
+   val=document.getElementById("txt").value.trim();
+   if(val.length<5||val.split(/\s+/).length<3)return disqualify();
  }
  if(currentQuestion.type==="slider"){
-   val=parseInt(document.getElementById("rng").value,10);
+   val=+document.getElementById("rng").value;
  }
-
- if(currentQuestion.trick && val!==currentQuestion.correct)
-   return disqualify();
+ if(currentQuestion.trick&&val!==currentQuestion.correct)return disqualify();
 
  step++;
- if(level===1) trickChance+=0.01;
- if(level===2) trickChance+=0.25;
- if(level===4) trickChance+=1;
+ if(level===1)trickChance+=0.01;
+ if(level===2)trickChance+=0.25;
+ if(level===4)trickChance+=1;
 
  saveProgress();
  render();
@@ -182,13 +216,36 @@ function nextLevel(){
  render();
 }
 
+/* 🎮 CLICKER FUNCTIONS */
+function clickerClick(){
+ let s=+localStorage.getItem("clickerScore")||0;
+ let p=+localStorage.getItem("clickerPower")||1;
+ s+=p;
+ localStorage.setItem("clickerScore",s);
+ render();
+}
+function buyUpgrade(a,c){
+ let s=+localStorage.getItem("clickerScore")||0;
+ let p=+localStorage.getItem("clickerPower")||1;
+ if(s<c)return;
+ localStorage.setItem("clickerScore",s-c);
+ localStorage.setItem("clickerPower",p+a);
+ render();
+}
+function finishClicker(){
+ localStorage.removeItem("clickerScore");
+ localStorage.removeItem("clickerPower");
+ step++;
+ saveProgress();
+ render();
+}
+
 function disqualify(){
  clearProgress();
  document.body.innerHTML="<h1>You were disqualified.</h1>";
 }
 
-/* ---------------- START ---------------- */
-
+/* ================= START ================= */
 if(loadProgress()){
  container.innerHTML=`
    <h2>Resume your survey?</h2>
