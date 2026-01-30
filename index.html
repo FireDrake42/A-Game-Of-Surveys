@@ -5,183 +5,288 @@
 <title>A Game Of Surveys</title>
 
 <style>
-body{font-family:Arial;margin:0;background:#fff}
-#top{display:flex;justify-content:space-between;padding:12px}
-#progressOuter{width:300px;height:18px;background:#ddd;border-radius:10px}
-#progressInner{height:100%;width:0%;background:#4caf50;border-radius:10px}
-.warning{color:red;font-weight:bold}
-button{padding:10px 20px;margin:10px}
-textarea{width:340px;height:100px}
-input[type=range]{width:300px}
-img{max-width:200px}
+body{
+  font-family: Arial, sans-serif;
+  background:white;
+  margin:0;
+  padding:20px;
+}
+#top{
+  display:flex;
+  justify-content:space-between;
+  margin-bottom:20px;
+}
+#progressBar{
+  width:100%;
+  height:14px;
+  background:#ddd;
+  border-radius:7px;
+  overflow:hidden;
+}
+#progressFill{
+  height:100%;
+  width:0%;
+  background:#4caf50;
+}
+.warning{
+  color:red;
+  font-weight:bold;
+}
+button{
+  padding:10px 16px;
+  font-size:16px;
+  margin-top:10px;
+}
+textarea{
+  width:100%;
+  height:90px;
+}
 </style>
 </head>
 
 <body>
 
 <div id="top">
-  <div>
-    <div id="progressText"></div>
-    <div id="progressOuter"><div id="progressInner"></div></div>
-    <div id="growth"></div>
-  </div>
-  <div id="trick"></div>
+  <div id="counter"></div>
+  <div id="chance"></div>
+</div>
+
+<div id="progressBar">
+  <div id="progressFill"></div>
 </div>
 
 <div id="container"></div>
 
 <script>
-/* ========== STATE ========== */
+/* ---------------- STATE ---------------- */
+
 let state={
- level:0,
- step:0,
- trickChance:2,
- resumed:false,
- clicker:{score:0,clicks:[],multiplier:1}
+  level:0,
+  step:0,
+  trickChance:2
 };
 
-/* ========== SAVE / LOAD ========== */
-function save(){localStorage.setItem("surveySave",JSON.stringify(state))}
-function load(){
- const d=localStorage.getItem("surveySave");
- if(!d) return false;
- state=JSON.parse(d);
- state.resumed=true;
- return true;
-}
-function resetAll(){localStorage.clear();location.reload()}
+/* ---------------- QUESTIONS ---------------- */
 
-/* ========== GROWTH ========== */
-function growthRate(){return [0,0.1,0.33,1,5][state.level]||5}
-
-/* ========== REAL QUESTIONS ========== */
 const questions={
-1:[
- "What does personal success mean to you, and how do you measure it in your life?",
- "Describe a goal that took you a long time to achieve and why it mattered.",
- "How do you usually react when something important does not go as planned?",
- "What habits help you stay consistent when motivation is low?",
- "How do you balance responsibilities with personal well-being?",
- "Describe a moment when you had to make a difficult decision.",
- "What motivates you to continue working toward long-term goals?",
- "How do you typically deal with pressure or stress?",
- "What role does failure play in your personal growth?",
- "Was it difficult to reach your current goals? Explain why.",
- "How do you stay focused when distractions are everywhere?",
- "What values guide your most important decisions?",
- "How do you define progress in your own life?",
- "Describe a time you had to adapt quickly to change.",
- "What keeps you disciplined over time?",
- "How do you prioritize tasks when everything feels important?",
- "What does achievement feel like to you emotionally?",
- "How do setbacks affect your confidence?",
- "What helps you regain motivation after burnout?",
- "What makes an effort feel worthwhile to you?"
-],
-
-2:[
- "Describe a challenge that tested your patience and how you handled it.",
- "How do you manage your time when facing multiple responsibilities?",
- "What strategies help you stay productive during long tasks?",
- "How do you respond to criticism or negative feedback?",
- "What internal factors influence your motivation the most?",
- "Describe a situation where persistence paid off.",
- "How do you stay organized in stressful situations?",
- "What role does planning play in your daily life?",
- "How do emotions affect your decision-making?",
- "What keeps you moving forward during uncertainty?",
- "How do you recover after making a mistake?",
- "Describe a moment you felt proud of overcoming difficulty.",
- "What helps you maintain focus for extended periods?",
- "How do you evaluate your own performance?",
- "What kind of challenges motivate you the most?",
- "How do you manage frustration when progress is slow?",
- "What habits negatively affect your productivity?",
- "How do you stay accountable to yourself?",
- "Describe how you define personal improvement.",
- "How do you maintain balance between effort and rest?"
-],
-
-3:[
- "Describe a long-term objective that required sustained effort.",
- "How do you evaluate whether a risk is worth taking?",
- "What drives you to continue when results are delayed?",
- "How do you separate emotions from logical decisions?",
- "Describe a time when discipline mattered more than motivation.",
- "How do you build resilience after repeated setbacks?",
- "What systems help you stay consistent over months or years?",
- "How do you assess progress without immediate feedback?",
- "What role does self-reflection play in your growth?",
- "How do you decide when to push forward versus step back?",
- "Describe a moment when perseverance changed an outcome.",
- "How do you manage internal doubt during challenges?",
- "What motivates you when external rewards are absent?",
- "How do you measure improvement objectively?",
- "What mental strategies help you during difficult tasks?",
- "Describe a situation where patience was necessary.",
- "How do you adapt strategies when plans fail?",
- "What influences your confidence during uncertainty?",
- "How do you handle responsibility under pressure?",
- "What defines meaningful effort to you?"
-],
-
-4:[
- "Describe how you approach complex problems with no clear solution.",
- "How do you maintain long-term discipline without external pressure?",
- "What mental frameworks guide your decision-making?",
- "How do you manage competing priorities over long periods?",
- "Describe how you respond to sustained stress.",
- "What separates persistence from stubbornness in your view?",
- "How do you assess personal growth over years?",
- "What internal signals tell you to adjust direction?",
- "How do you maintain clarity during prolonged effort?",
- "Describe how you manage uncertainty when outcomes are unknown.",
- "What role does self-control play in your success?",
- "How do you recover mentally after extended challenges?",
- "What habits support resilience under pressure?",
- "How do you balance ambition with realism?",
- "Describe a situation that required long-term commitment.",
- "How do you measure success beyond outcomes?",
- "What helps you stay grounded during high expectations?",
- "How do you manage energy across demanding periods?",
- "What principles guide your perseverance?",
- "How do you maintain purpose through difficulty?",
- "How do you stay consistent without immediate reward?",
- "What mindset helps you endure prolonged effort?",
- "Describe how reflection shapes your future actions.",
- "How do you manage internal conflict during decisions?",
- "What keeps you aligned with your long-term values?",
- "How do you respond to prolonged uncertainty?",
- "Describe the role of patience in your achievements.",
- "How do you prevent burnout over long projects?",
- "What defines sustainable effort for you?",
- "How do you stay disciplined under pressure?",
- "What keeps your focus sharp during monotony?",
- "How do you evaluate effort versus outcome?",
- "Describe a situation requiring mental endurance.",
- "How do you stay committed during slow progress?",
- "What motivates consistency in your life?",
- "How do you manage doubt over time?",
- "What helps you maintain clarity during stress?",
- "How do you align actions with long-term goals?",
- "What strengthens your resilience?",
- "How do you define mastery over time?"
-]
+  1:[
+    "What does success mean to you?",
+    "What motivates you to work hard?",
+    "Describe a goal you are proud of achieving.",
+    "How do you handle failure?",
+    "What skill would you like to improve?"
+  ],
+  2:[
+    "What inspires you creatively?",
+    "How do you stay focused?",
+    "What is your biggest strength?",
+    "What challenges you the most?",
+    "How do you define happiness?",
+    "What habits help you succeed?",
+    "What does teamwork mean to you?",
+    "How do you manage stress?",
+    "What does leadership mean to you?",
+    "What motivates long-term goals?",
+    "How do you learn best?",
+    "What is something you overcame?",
+    "What makes a good decision?",
+    "What does responsibility mean?",
+    "How do you stay organized?",
+    "What drives personal growth?",
+    "What is meaningful work?",
+    "What helps you stay disciplined?",
+    "What does balance mean?",
+    "What inspires improvement?"
+  ],
+  3:[
+    "Describe a time you adapted to change.",
+    "What motivates you during difficulty?",
+    "How do you prioritize tasks?",
+    "What does integrity mean?",
+    "How do you solve problems?",
+    "What makes feedback useful?",
+    "How do you handle pressure?",
+    "What defines success in a team?",
+    "What does perseverance mean?",
+    "How do you stay motivated?",
+    "What makes communication effective?",
+    "How do you learn from mistakes?",
+    "What encourages innovation?",
+    "How do you build confidence?",
+    "What is constructive criticism?",
+    "How do you improve consistency?",
+    "What helps decision making?",
+    "What motivates improvement?",
+    "How do you measure progress?",
+    "What builds resilience?",
+    "How do you manage time?",
+    "What does accountability mean?",
+    "What creates strong habits?",
+    "How do you handle setbacks?",
+    "What inspires leadership?",
+    "What does collaboration mean?",
+    "How do you stay curious?",
+    "What encourages learning?",
+    "How do you maintain focus?",
+    "What builds trust?",
+    "What motivates excellence?",
+    "How do you adapt strategies?",
+    "What does commitment mean?",
+    "How do you evaluate success?",
+    "What supports growth?",
+    "What encourages effort?",
+    "How do you stay determined?",
+    "What motivates progress?",
+    "What does achievement mean?",
+    "How do you refine skills?"
+  ]
 };
 
-/* ========== VALIDATION ========== */
-function validText(t){
- const words=t.trim().split(/\s+/);
- if(words.length<10) return false;
- const unique=new Set(words.map(w=>w.toLowerCase()));
- return unique.size>=6;
+/* ---------------- GROWTH ---------------- */
+
+function growthRate(){
+  if(state.level===1) return 0.1;
+  if(state.level===2) return 0.33;
+  if(state.level===3) return 1;
+  return 0;
 }
 
-/* ========== REMAINDER LOGIC (UNCHANGED) ========== */
-/* everything else — trick logic, clicker, resume, rendering —
-   stays EXACTLY as in your previous working version */
+/* ---------------- SAVE / LOAD ---------------- */
 
-render();
+function save(){
+  localStorage.setItem("surveySave",JSON.stringify(state));
+}
+
+function load(){
+  const d=localStorage.getItem("surveySave");
+  if(!d) return false;
+  state=JSON.parse(d);
+  return true;
+}
+
+/* ---------------- VALIDATION ---------------- */
+
+function validText(t){
+  if(!t) return false;
+  const words=t.trim().split(/\s+/);
+  if(words.length<5) return false;
+  const unique=new Set(words.map(w=>w.toLowerCase()));
+  return unique.size>=3;
+}
+
+/* ---------------- RENDER ---------------- */
+
+function render(){
+  const c=document.getElementById("container");
+  c.innerHTML="";
+
+  document.getElementById("counter").innerHTML=
+    state.level>0 ? `Level ${state.level}` : "";
+
+  document.getElementById("chance").innerHTML=
+    state.level>0
+      ? `Trick Chance: ${state.trickChance.toFixed(2)}%`
+      : "";
+
+  if(state.trickChance>=50){
+    document.getElementById("chance").className="warning";
+  }else{
+    document.getElementById("chance").className="";
+  }
+
+  if(state.level===0){
+    c.innerHTML=`
+      <h2>A Game Of Surveys</h2>
+      <p>This survey will take approximately 15 minutes.</p>
+      <button onclick="startNew()">Start New</button>
+      ${localStorage.getItem("surveySave")
+        ? `<button onclick="resume()">Resume</button>`
+        : ""
+      }
+    `;
+    return;
+  }
+
+  renderQuestion();
+}
+
+/* ---------------- QUESTION RENDER ---------------- */
+
+function renderQuestion(){
+  const list=questions[state.level];
+  if(!list || state.step>=list.length){
+    nextLevel();
+    return;
+  }
+
+  const total=list.length;
+  const percent=(state.step/total)*100;
+  document.getElementById("progressFill").style.width=percent+"%";
+
+  document.getElementById("container").innerHTML=`
+    <h3>${state.step+1}/${total}</h3>
+    <p>${list[state.step]}</p>
+    <textarea id="answer"></textarea>
+    <br>
+    <button onclick="submit()">Continue</button>
+  `;
+}
+
+/* ---------------- SUBMIT ---------------- */
+
+function submit(){
+  const t=document.getElementById("answer").value;
+  if(!validText(t)){
+    alert("Your answer must be meaningful and related.");
+    return;
+  }
+
+  state.step++;
+  state.trickChance=Math.min(
+    100,
+    state.trickChance + growthRate()
+  );
+
+  save();
+  render();
+}
+
+/* ---------------- LEVEL CHANGE ---------------- */
+
+function nextLevel(){
+  state.level++;
+  state.step=0;
+
+  if(state.level>3){
+    document.getElementById("container").innerHTML=
+      "<h2>Survey Complete</h2>";
+    localStorage.removeItem("surveySave");
+    return;
+  }
+
+  save();
+  render();
+}
+
+/* ---------------- CONTROLS ---------------- */
+
+function startNew(){
+  state={level:1,step:0,trickChance:2};
+  save();
+  render();
+}
+
+function resume(){
+  if(load()) render();
+}
+
+/* ---------------- START ---------------- */
+
+window.onload=()=>{
+  if(!load()) state.level=0;
+  render();
+};
 </script>
+
 </body>
 </html>
