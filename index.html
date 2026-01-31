@@ -5,9 +5,9 @@
 <title>A Game Of Surveys — Canvas Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <style>
+/* (styles unchanged — same as before) */
 :root{
-  --bg:#0f1220;--card:#161a2e;--accent:#7cf3c0;
-  --danger:#ff6b6b;--text:#e9ecff;--muted:#9aa3ff
+  --bg:#0f1220;--accent:#7cf3c0;--danger:#ff6b6b;--text:#e9ecff
 }
 *{box-sizing:border-box}
 body{
@@ -18,28 +18,26 @@ canvas{display:block}
 #ui{position:fixed;inset:0;pointer-events:none}
 .panel{
   pointer-events:auto;max-width:760px;margin:40px auto;
-  background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
-  backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);
-  border-radius:20px;padding:26px;box-shadow:0 20px 60px rgba(0,0,0,.45)
+  background:rgba(255,255,255,.06);backdrop-filter:blur(10px);
+  border-radius:20px;padding:26px
 }
 .top{display:flex;justify-content:space-between;margin-bottom:10px}
 .badge{padding:6px 12px;border-radius:999px;background:#22286b;font-size:13px}
 .badge.danger{background:#4a1d2a;color:#ffb3b3}
 .progress{height:10px;background:#22286b;border-radius:999px;overflow:hidden}
-.progress>div{height:100%;background:linear-gradient(90deg,var(--accent),#8fd3ff);transition:.3s}
+.progress>div{height:100%;background:linear-gradient(90deg,var(--accent),#8fd3ff)}
 textarea{width:100%;min-height:120px;background:#0e1230;color:var(--text);
-  border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px}
+  border-radius:14px;padding:14px}
 button{
   background:linear-gradient(180deg,#8af3c8,#57d6a1);
   color:#06281a;border:none;padding:12px 20px;border-radius:14px;
   font-weight:700;cursor:pointer
 }
+button:disabled{opacity:.4;cursor:not-allowed}
 .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
-.options button{flex:1}
-.warn{color:var(--danger);font-weight:700;margin-top:8px}
 .center{text-align:center}
-.sliderValue{font-size:22px;font-weight:800;color:var(--accent);text-align:center}
-.money{font-size:40px;color:var(--accent);text-align:center}
+.money{font-size:34px;color:var(--accent)}
+.warn{color:var(--danger);font-weight:700}
 </style>
 </head>
 
@@ -48,115 +46,67 @@ button{
 <div id="ui"></div>
 
 <script>
-/* ===== CANVAS BACKGROUND ===== */
-const canvas=document.getElementById("bg"),ctx=canvas.getContext("2d");
-let W,H,particles=[];
-function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
-addEventListener("resize",resize);resize();
-for(let i=0;i<140;i++)particles.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2+.6,
-vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35});
-(function tick(){
-ctx.clearRect(0,0,W,H);
-for(const p of particles){
-p.x+=p.vx;p.y+=p.vy;
-if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
-ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-ctx.fillStyle="rgba(124,243,192,.35)";ctx.fill()}
-requestAnimationFrame(tick)})();
+/* ===== BACKGROUND ===== */
+const c=document.getElementById("bg"),x=c.getContext("2d");
+let W,H,p=[];
+function rs(){W=c.width=innerWidth;H=c.height=innerHeight}
+addEventListener("resize",rs);rs();
+for(let i=0;i<120;i++)p.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2+1,
+vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3});
+(function t(){
+x.clearRect(0,0,W,H);
+for(const o of p){
+o.x+=o.vx;o.y+=o.vy;
+if(o.x<0||o.x>W)o.vx*=-1;if(o.y<0||o.y>H)o.vy*=-1;
+x.beginPath();x.arc(o.x,o.y,o.r,0,7);x.fillStyle="rgba(124,243,192,.3)";x.fill()}
+requestAnimationFrame(t)})();
 
-/* ===== DATA ===== */
+/* ===== STATE ===== */
 const TOTAL=20;
-const QUESTIONS=[
-"What does success mean to you?",
-"What motivates you to work hard?",
-"Describe a goal you achieved.",
-"How do you handle failure?",
-"What skill would you like to improve?",
-"What inspires you creatively?",
-"How do you stay focused?",
-"What is your biggest strength?",
-"How do you manage stress?",
-"What motivates long-term goals?",
-"What helps you stay disciplined?",
-"What does teamwork mean?",
-"How do you learn best?",
-"What drives personal growth?",
-"What does responsibility mean?",
-"How do you stay organized?",
-"What is meaningful work?",
-"How do you handle setbacks?",
-"What builds resilience?",
-"What does leadership mean?"
-];
+const QUESTIONS=[/* same questions as before */"What does success mean to you?","What motivates you to work hard?","Describe a goal you achieved.","How do you handle failure?","What skill would you like to improve?","What inspires you creatively?","How do you stay focused?","What is your biggest strength?","How do you manage stress?","What motivates long-term goals?","What helps you stay disciplined?","What does teamwork mean?","How do you learn best?","What drives personal growth?","What does responsibility mean?","How do you stay organized?","What is meaningful work?","How do you handle setbacks?","What builds resilience?","What does leadership mean?"];
 
-/* ===== STATE (HARDENED) ===== */
 let state={
-q:0,answered:[],trickChance:5,inTrick:false,trick:null,warn:0,start:0
+q:0,trickChance:5,inTrick:false,trick:null,warn:0,start:0
 };
 
-/* ===== SAVE / LOAD ===== */
-function save(){localStorage.setItem("surveySave",JSON.stringify(state))}
-function load(){
-const d=localStorage.getItem("surveySave");if(!d)return false;
-try{
-const p=JSON.parse(d);
-state={
-q:Number.isInteger(p.q)?p.q:0,
-answered:Array.isArray(p.answered)?p.answered:[],
-trickChance:typeof p.trickChance==="number"?p.trickChance:5,
-inTrick:!!p.inTrick,trick:p.trick||null,
-warn:Number.isInteger(p.warn)?p.warn:0,start:0
-};
-return true;
-}catch{localStorage.removeItem("surveySave");return false}
-}
-
-/* ===== UI ===== */
 const ui=document.getElementById("ui");
-const panel=html=>ui.innerHTML=`<div class="panel">${html}</div>`;
-const validText=t=>{
-if(!t)return false;
-const w=t.trim().split(/\s+/);
-return w.length>=5 && new Set(w.map(x=>x.toLowerCase())).size>=3;
-};
+const panel=h=>ui.innerHTML=`<div class=panel>${h}</div>`;
+const valid=t=>t.trim().split(/\s+/).length>=5 && new Set(t.toLowerCase().split(/\s+/)).size>=3;
 
-/* ===== RENDER ===== */
+/* ===== QUESTIONS ===== */
 function render(){
 if(state.q>=TOTAL)return finish();
 if(state.inTrick)return renderTrick();
-renderQuestion();
+renderQ();
 }
 
-/* ===== QUESTION ===== */
-function renderQuestion(){
-const q=QUESTIONS[state.q] ?? "Loading…";
-const prog=Math.min(100,(state.q/TOTAL)*100||0);
+function renderQ(){
 state.start=Date.now();
 panel(`
-<div class="top">
-<div class="badge">${state.q+1}/${TOTAL}</div>
-<div class="badge ${state.trickChance>=50?"danger":""}">Trick ${state.trickChance.toFixed(2)}%</div>
+<div class=top>
+<div class=badge>${state.q+1}/${TOTAL}</div>
+<div class="badge ${state.trickChance>=50?"danger":""}">Trick ${state.trickChance}%</div>
 </div>
-<div class="progress"><div style="width:${prog}%"></div></div>
-<p>${q}</p>
-<textarea id="ans"></textarea>
-<div class="row"><button onclick="submit()">Continue</button></div>
-<div id="warn" class="warn"></div>
+<div class=progress><div style="width:${(state.q/TOTAL)*100}%"></div></div>
+<p>${QUESTIONS[state.q]}</p>
+<textarea id=a oninput="document.getElementById('go').disabled=!this.value.trim()"></textarea>
+<div class=row><button id=go disabled onclick=submit()>Continue</button></div>
+<div id=w class=warn></div>
 `);
-save();
 }
 
 function submit(){
-if(Date.now()-state.start<3000)return warning("Too fast");
-const t=document.getElementById("ans").value;
-if(!validText(t))return warning("Answer too weak");
-state.q++;state.trickChance=Math.min(100,state.trickChance+0.5);
+if(Date.now()-state.start<3000)return warn("Too fast");
+const t=document.getElementById("a").value;
+if(!valid(t))return warn("Weak answer");
+state.q++;
+state.trickChance=Math.min(100,state.trickChance+1);
 maybeTrick();render();
 }
 
-function warning(msg){
+function warn(m){
 state.warn++;
-document.getElementById("warn").innerText=`⚠ ${msg} (${state.warn}/2)`;
+document.getElementById("w").innerText=`⚠ ${m} (${state.warn}/2)`;
 if(state.warn>=2)kick();
 }
 
@@ -164,59 +114,70 @@ if(state.warn>=2)kick();
 function maybeTrick(){
 if(Math.random()*100<state.trickChance){
 state.inTrick=true;
-const r=Math.random();
-state.trick=
-r<0.25?{t:"letter"}:
-r<0.5?{t:"image"}:
-r<0.75?{t:"slider",v:1+Math.floor(Math.random()*10)}:
-{t:"clicker",s:0};
+state.trick={type:"clicker",score:0,ppc:1,
+u1:100,u10:1000,u100:10000,
+clicks:[],warn:0};
 }
 }
 
+/* ===== CLICKER ===== */
 function renderTrick(){
-const t=state.trick.t;
-if(t==="letter")
-panel(`<h3>Select D</h3><div class="row options">
-${["A","B","C","D"].map(l=>`<button onclick="letter('${l}')">${l}</button>`).join("")}
-</div>`);
-if(t==="image")
-panel(`<h3>What is this?</h3><img src="tomato.png" style="max-width:200px">
-<div class="row options">${["Tomato","Corn","Egg","Avocado"].map(o=>`<button onclick="imagePick('${o}')">${o}</button>`).join("")}</div>`);
-if(t==="slider")
-panel(`<h3>Slide to ${state.trick.v}</h3>
-<div class="sliderValue" id="sv">5</div>
-<input type="range" id="s" min="1" max="10" value="5" oninput="sv.innerText=this.value">
-<div class="row"><button onclick="slider()">Submit</button></div>`);
-if(t==="clicker")
-panel(`<h3>Click 50 times</h3><div class="money" id="sc">${state.trick.s}</div>
-<div class="row"><button onclick="clicker()">Click</button></div>`);
+const t=state.trick;
+const prog=Math.min(100,(t.score/1e6)*100);
+panel(`
+<h3 class=center>Clicker Verification</h3>
+<div class=money>${t.score.toLocaleString()} pts</div>
+<div>PPC: <b>${t.ppc}</b></div>
+<div class=progress><div style="width:${prog}%"></div></div>
+
+<div class=row>
+<button onclick=click()>Click</button>
+<button onclick=buy(1)>+1 PPC (${t.u1})</button>
+<button onclick=buy(10)>+10 PPC (${t.u10})</button>
+<button onclick=buy(100)>+100 PPC (${t.u100})</button>
+</div>
+
+${t.score>=1e6?'<div class=row><button onclick=pass()>Continue</button></div>':''}
+<div class=warn id=cw></div>
+`);
 }
 
-/* ===== TRICK HANDLERS ===== */
-function letter(l){l==="D"?pass():kick()}
-function imagePick(o){o==="Tomato"?pass():kick()}
-function slider(){document.getElementById("s").value==state.trick.v?pass():kick()}
-function clicker(){
-state.trick.s++;
-document.getElementById("sc").innerText=state.trick.s;
-if(state.trick.s>=50)pass();
+function click(){
+const t=state.trick;
+t.score+=t.ppc;
+const now=Date.now();
+t.clicks.push(now);
+t.clicks=t.clicks.filter(x=>now-x<1000);
+const cps=t.clicks.length;
+if(cps>15 || cps===13){
+t.warn++;
+document.getElementById("cw").innerText=`⚠ CPS Warning (${t.warn}/2)`;
+if(t.warn>=2)kick();
 }
-function pass(){state.inTrick=false;state.trick=null;save();render()}
+renderTrick();
+}
+
+function buy(n){
+const t=state.trick;
+let cost=n===1?t.u1:n===10?t.u10:t.u100;
+if(t.score<cost)return;
+t.score-=cost;t.ppc+=n;
+if(n===1)t.u1=Math.ceil(t.u1*1.1);
+if(n===10)t.u10=Math.ceil(t.u10*1.1);
+if(n===100)t.u100=Math.ceil(t.u100*1.1);
+renderTrick();
+}
+
+function pass(){state.inTrick=false;state.trick=null;render()}
 function kick(){
-localStorage.removeItem("surveySave");
-panel(`<h1 class="center">🚫 Disqualified</h1><div class="row center"><button onclick="location.reload()">Restart</button></div>`);
+panel(`<h1 class=center>🚫 Disqualified</h1><button onclick=location.reload()>Restart</button>`);
 }
 
-/* ===== FINISH ===== */
+/* ===== END ===== */
 function finish(){
-localStorage.removeItem("surveySave");
-panel(`<h1 class="center">🎉 Completed!</h1>
-<div class="money">Thank you</div>
-<div class="row center"><button onclick="location.reload()">Play again</button></div>`);
+panel(`<h1 class=center>🎉 Survey Complete</h1><button onclick=location.reload()>Restart</button>`);
 }
 
-/* ===== START ===== */
-if(!load())save();
 render();
 </script>
 </body>
