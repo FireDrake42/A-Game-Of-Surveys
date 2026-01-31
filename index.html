@@ -10,17 +10,23 @@
 }
 *{box-sizing:border-box}
 body{
-margin:0;background:radial-gradient(1200px 600px at 10% -10%,#1c2240,transparent),var(--bg);
-color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;overflow:hidden
+margin:0;
+background:radial-gradient(1200px 600px at 10% -10%,#1c2240,transparent),var(--bg);
+color:var(--text);
+font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+overflow:hidden
 }
 canvas{display:block}
 #ui{position:fixed;inset:0;pointer-events:none}
 .panel{
-pointer-events:auto;max-width:760px;margin:40px auto;
+pointer-events:auto;
+max-width:760px;
+margin:40px auto;
 background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
 backdrop-filter:blur(10px);
 border:1px solid rgba(255,255,255,.12);
-border-radius:20px;padding:26px;
+border-radius:20px;
+padding:26px;
 box-shadow:0 20px 60px rgba(0,0,0,.45)
 }
 .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
@@ -29,16 +35,27 @@ box-shadow:0 20px 60px rgba(0,0,0,.45)
 .progress{height:10px;background:#22286b;border-radius:999px;overflow:hidden;margin:12px 0}
 .progress>div{height:100%;background:linear-gradient(90deg,var(--accent),#8fd3ff)}
 textarea{
-width:100%;min-height:120px;background:#0e1230;color:var(--text);
-border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px
+width:100%;
+min-height:120px;
+background:#0e1230;
+color:var(--text);
+border:1px solid rgba(255,255,255,.15);
+border-radius:14px;
+padding:14px
 }
 button{
 background:linear-gradient(180deg,#8af3c8,#57d6a1);
-border:none;padding:12px 20px;border-radius:14px;font-weight:700;cursor:pointer
+border:none;
+padding:12px 20px;
+border-radius:14px;
+font-weight:700;
+cursor:pointer
 }
+button:disabled{opacity:.4;cursor:not-allowed}
 .row{display:flex;gap:12px;flex-wrap:wrap}
 .center{text-align:center}
 .money{font-size:36px;color:var(--accent)}
+.shop button{flex:1}
 </style>
 </head>
 <body>
@@ -49,22 +66,25 @@ border:none;padding:12px 20px;border-radius:14px;font-weight:700;cursor:pointer
 <script>
 /* ===== Canvas ===== */
 const canvas=document.getElementById("bg"),ctx=canvas.getContext("2d");
-let W,H;function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
 addEventListener("resize",resize);resize();
-const particles=[...Array(140)].map(()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2+0.6,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35}));
+const particles=[...Array(140)].map(()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2+.6,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35}));
 (function tick(){
 ctx.clearRect(0,0,W,H);
 for(const p of particles){
 p.x+=p.vx;p.y+=p.vy;
 if(p.x<0||p.x>W)p.vx*=-1;
 if(p.y<0||p.y>H)p.vy*=-1;
-ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-ctx.fillStyle="rgba(124,243,192,.35)";ctx.fill()
+ctx.beginPath();
+ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+ctx.fillStyle="rgba(124,243,192,.35)";
+ctx.fill()
 }
 requestAnimationFrame(tick)
 })();
 
-/* ===== State ===== */
+/* ===== Survey State ===== */
 const TOTAL=20;
 const QUESTIONS=[
 "What does success mean to you?",
@@ -80,18 +100,17 @@ const QUESTIONS=[
 "How do you learn best?",
 "What drives personal growth?",
 "What does responsibility mean?",
-"How do you stay organized?",
 "What makes work meaningful?",
 "How do you handle setbacks?",
 "What builds resilience?",
 "What does leadership mean?",
 "What encourages innovation?",
-"What defines progress for you?"
+"What defines progress for you?",
+"What keeps you motivated long term?"
 ];
 
 let state={
 index:0,
-used:[],
 trickChance:5,
 trickMeter:0,
 inTrick:false,
@@ -101,7 +120,7 @@ trick:null
 const ui=document.getElementById("ui");
 const panel=h=>ui.innerHTML=`<div class="panel">${h}</div>`;
 
-/* ===== Render ===== */
+/* ===== Survey ===== */
 function render(){
 if(state.index>=TOTAL)return finish();
 if(state.inTrick)return renderTrick();
@@ -109,31 +128,31 @@ renderQuestion();
 }
 
 function renderQuestion(){
-const q=QUESTIONS[state.index];
 panel(`
 <div class="top">
 <div class="badge">Question ${state.index+1}/${TOTAL}</div>
 <div class="badge ${state.trickChance>=50?"danger":""}">Trick ${state.trickChance}%</div>
 </div>
 <div class="progress"><div style="width:${(state.index/TOTAL)*100}%"></div></div>
-<p>${q}</p>
+<p>${QUESTIONS[state.index]}</p>
 <textarea id="ans" placeholder="Type at least one word..."></textarea>
-<div class="row"><button id="btn" disabled>Continue</button></div>
+<div class="row">
+<button id="next" disabled>Continue</button>
+</div>
 `);
 
-const a=document.getElementById("ans"),b=document.getElementById("btn");
+const a=document.getElementById("ans");
+const b=document.getElementById("next");
 a.addEventListener("input",()=>b.disabled=!a.value.trim());
-b.onclick=submit;
-}
-
-function submit(){
+b.onclick=()=>{
 state.index++;
 state.trickChance=Math.min(100,state.trickChance+1);
 maybeTrick();
 render();
+};
 }
 
-/* ===== Reliable Trick Logic ===== */
+/* ===== Reliable Trick Chance ===== */
 function maybeTrick(){
 state.trickMeter+=state.trickChance;
 if(state.trickMeter>=100||Math.random()*100<state.trickMeter){
@@ -144,54 +163,75 @@ spawnTrick();
 
 function spawnTrick(){
 state.inTrick=true;
-const r=Math.random();
-if(r<.25)state.trick={type:"letter"};
-else if(r<.5)state.trick={type:"image"};
-else if(r<.75)state.trick={type:"slider",target:1+Math.floor(Math.random()*10)};
-else state.trick={type:"clicker",score:0,ppc:1};
+state.trick={
+type:"clicker",
+score:0,
+ppc:1,
+prices:{p1:100,p10:1000,p100:10000}
+};
 }
 
-/* ===== Trick Renders ===== */
+/* ===== Clicker Game ===== */
 function renderTrick(){
 const t=state.trick;
-if(t.type==="letter")
-panel(`<h3>Select D</h3><div class=row>${["A","B","C","D"].map(x=>`<button onclick="letter('${x}')">${x}</button>`).join("")}</div>`);
-if(t.type==="image")
-panel(`<h3>What is this?</h3><img src="tomato.png" width=180><div class=row>${["Tomato","Corn","Egg","Avocado"].map(x=>`<button onclick="img('${x}')">${x}</button>`).join("")}</div>`);
-if(t.type==="slider")
-panel(`<h3>Slide to ${t.target}</h3><input type=range min=1 max=10 id=s oninput="v.innerText=this.value"><div id=v class=center>5</div><button onclick="slide()">Submit</button>`);
-if(t.type==="clicker")renderClicker();
-}
-
-/* ===== Clicker ===== */
-function renderClicker(){
-const t=state.trick;
 panel(`
-<h3 class=center>Reach 1,000,000</h3>
-<div class="money center">${t.score}</div>
-<div class="progress"><div style="width:${Math.min(100,t.score/10000)}%"></div></div>
-<p class=center>PPC: ${t.ppc}</p>
-<div class=row>
+<h3 class=center>Clicker Verification</h3>
+
+<div class="money center">${Math.floor(t.score)}</div>
+<div class="progress">
+<div style="width:${Math.min(100,(t.score/1_000_000)*100)}%"></div>
+</div>
+
+<p class="center">PPC: <b>${t.ppc}</b></p>
+
+<div class="row center">
 <button onclick="click()">Click</button>
 </div>
-${t.score>=1e6?'<button onclick="pass()">Continue</button>':""}
+
+<div class="shop">
+<p><b>Upgrades</b></p>
+<div class="row">
+<button onclick="buy('p1')">+1 PPC (${Math.floor(t.prices.p1)})</button>
+<button onclick="buy('p10')">+10 PPC (${Math.floor(t.prices.p10)})</button>
+<button onclick="buy('p100')">+100 PPC (${Math.floor(t.prices.p100)})</button>
+</div>
+</div>
+
+${t.score>=1_000_000?'<div class="row center"><button onclick="pass()">Continue</button></div>':""}
 `);
 }
+
 function click(){
 state.trick.score+=state.trick.ppc;
-renderClicker();
+renderTrick();
 }
 
-/* ===== Trick handlers ===== */
-function letter(x){x==="D"?pass():fail()}
-function img(x){x==="Tomato"?pass():fail()}
-function slide(){document.getElementById("s").value==state.trick.target?pass():fail()}
-function pass(){state.inTrick=false;state.trick=null;render()}
-function fail(){panel(`<h1 class=center>🚫 Disqualified</h1><button onclick=location.reload()>Restart</button>`)}
+function buy(type){
+const t=state.trick;
+const cost=t.prices[type];
+if(t.score<cost)return;
+t.score-=cost;
+if(type==="p1")t.ppc+=1;
+if(type==="p10")t.ppc+=10;
+if(type==="p100")t.ppc+=100;
+t.prices[type]*=1.1;
+renderTrick();
+}
+
+function pass(){
+state.inTrick=false;
+state.trick=null;
+render();
+}
 
 /* ===== Finish ===== */
 function finish(){
-panel(`<h1 class=center>🎉 Finished</h1><div class=center><button onclick=location.reload()>Restart</button></div>`);
+panel(`
+<h1 class="center">🎉 Survey Completed</h1>
+<div class="center">
+<button onclick="location.reload()">Restart</button>
+</div>
+`);
 }
 
 render();
