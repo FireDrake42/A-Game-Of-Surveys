@@ -5,33 +5,49 @@
 <title>A Game Of Surveys — Canvas Edition</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <style>
-/* (styles unchanged — same as before) */
 :root{
   --bg:#0f1220;--accent:#7cf3c0;--danger:#ff6b6b;--text:#e9ecff
 }
 *{box-sizing:border-box}
 body{
-  margin:0;background:radial-gradient(1200px 600px at 10% -10%,#1c2240,transparent),var(--bg);
-  color:var(--text);font-family:system-ui,Arial,sans-serif;overflow:hidden
+  margin:0;
+  background:radial-gradient(1200px 600px at 10% -10%,#1c2240,transparent),var(--bg);
+  color:var(--text);
+  font-family:system-ui,Arial,sans-serif;
+  overflow:hidden
 }
 canvas{display:block}
 #ui{position:fixed;inset:0;pointer-events:none}
 .panel{
-  pointer-events:auto;max-width:760px;margin:40px auto;
-  background:rgba(255,255,255,.06);backdrop-filter:blur(10px);
-  border-radius:20px;padding:26px
+  pointer-events:auto;
+  max-width:760px;
+  margin:40px auto;
+  background:rgba(255,255,255,.06);
+  backdrop-filter:blur(10px);
+  border-radius:20px;
+  padding:26px;
 }
 .top{display:flex;justify-content:space-between;margin-bottom:10px}
 .badge{padding:6px 12px;border-radius:999px;background:#22286b;font-size:13px}
 .badge.danger{background:#4a1d2a;color:#ffb3b3}
 .progress{height:10px;background:#22286b;border-radius:999px;overflow:hidden}
 .progress>div{height:100%;background:linear-gradient(90deg,var(--accent),#8fd3ff)}
-textarea{width:100%;min-height:120px;background:#0e1230;color:var(--text);
-  border-radius:14px;padding:14px}
+textarea{
+  width:100%;
+  min-height:120px;
+  background:#0e1230;
+  color:var(--text);
+  border-radius:14px;
+  padding:14px
+}
 button{
   background:linear-gradient(180deg,#8af3c8,#57d6a1);
-  color:#06281a;border:none;padding:12px 20px;border-radius:14px;
-  font-weight:700;cursor:pointer
+  color:#06281a;
+  border:none;
+  padding:12px 20px;
+  border-radius:14px;
+  font-weight:700;
+  cursor:pointer
 }
 button:disabled{opacity:.4;cursor:not-allowed}
 .row{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
@@ -46,136 +62,226 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <div id="ui"></div>
 
 <script>
-/* ===== BACKGROUND ===== */
-const c=document.getElementById("bg"),x=c.getContext("2d");
-let W,H,p=[];
-function rs(){W=c.width=innerWidth;H=c.height=innerHeight}
-addEventListener("resize",rs);rs();
-for(let i=0;i<120;i++)p.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2+1,
-vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3});
-(function t(){
-x.clearRect(0,0,W,H);
-for(const o of p){
-o.x+=o.vx;o.y+=o.vy;
-if(o.x<0||o.x>W)o.vx*=-1;if(o.y<0||o.y>H)o.vy*=-1;
-x.beginPath();x.arc(o.x,o.y,o.r,0,7);x.fillStyle="rgba(124,243,192,.3)";x.fill()}
-requestAnimationFrame(t)})();
+/* ===== CANVAS BACKGROUND ===== */
+const canvas=document.getElementById("bg"),ctx=canvas.getContext("2d");
+let W,H,parts=[];
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener("resize",resize);resize();
+for(let i=0;i<120;i++)parts.push({
+  x:Math.random()*W,y:Math.random()*H,r:Math.random()*2+1,
+  vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3
+});
+(function loop(){
+  ctx.clearRect(0,0,W,H);
+  for(const p of parts){
+    p.x+=p.vx;p.y+=p.vy;
+    if(p.x<0||p.x>W)p.vx*=-1;
+    if(p.y<0||p.y>H)p.vy*=-1;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ctx.fillStyle="rgba(124,243,192,.3)";
+    ctx.fill();
+  }
+  requestAnimationFrame(loop);
+})();
+
+/* ===== DATA ===== */
+const TOTAL=20;
+const QUESTIONS=[
+"What does success mean to you?",
+"What motivates you to work hard?",
+"Describe a goal you achieved.",
+"How do you handle failure?",
+"What skill would you like to improve?",
+"What inspires you creatively?",
+"How do you stay focused?",
+"What is your biggest strength?",
+"How do you manage stress?",
+"What motivates long-term goals?",
+"What helps you stay disciplined?",
+"What does teamwork mean?",
+"How do you learn best?",
+"What drives personal growth?",
+"What does responsibility mean?",
+"What does meaningful work mean to you?",
+"How do you handle setbacks?",
+"What builds resilience?",
+"What encourages innovation?",
+"What does leadership mean?"
+];
 
 /* ===== STATE ===== */
-const TOTAL=20;
-const QUESTIONS=[/* same questions as before */"What does success mean to you?","What motivates you to work hard?","Describe a goal you achieved.","How do you handle failure?","What skill would you like to improve?","What inspires you creatively?","How do you stay focused?","What is your biggest strength?","How do you manage stress?","What motivates long-term goals?","What helps you stay disciplined?","What does teamwork mean?","How do you learn best?","What drives personal growth?","What does responsibility mean?","How do you stay organized?","What is meaningful work?","How do you handle setbacks?","What builds resilience?","What does leadership mean?"];
-
 let state={
-q:0,trickChance:5,inTrick:false,trick:null,warn:0,start:0
+  q:0,
+  trickChance:5,
+  inTrick:false,
+  trick:null,
+  warn:0,
+  start:0
 };
 
 const ui=document.getElementById("ui");
-const panel=h=>ui.innerHTML=`<div class=panel>${h}</div>`;
-const valid=t=>t.trim().split(/\s+/).length>=5 && new Set(t.toLowerCase().split(/\s+/)).size>=3;
+const panel=h=>ui.innerHTML=`<div class="panel">${h}</div>`;
 
-/* ===== QUESTIONS ===== */
+/* ===== VALIDATION ===== */
+const validAnswer=t=>{
+  const words=t.trim().split(/\s+/);
+  return words.length>=5 && new Set(words.map(w=>w.toLowerCase())).size>=3;
+};
+
+/* ===== MAIN RENDER ===== */
 function render(){
-if(state.q>=TOTAL)return finish();
-if(state.inTrick)return renderTrick();
-renderQ();
+  if(state.q>=TOTAL) return finish();
+  if(state.inTrick) return renderTrick();
+  renderQuestion();
 }
 
-function renderQ(){
-state.start=Date.now();
-panel(`
-<div class=top>
-<div class=badge>${state.q+1}/${TOTAL}</div>
-<div class="badge ${state.trickChance>=50?"danger":""}">Trick ${state.trickChance}%</div>
-</div>
-<div class=progress><div style="width:${(state.q/TOTAL)*100}%"></div></div>
-<p>${QUESTIONS[state.q]}</p>
-<textarea id=a oninput="document.getElementById('go').disabled=!this.value.trim()"></textarea>
-<div class=row><button id=go disabled onclick=submit()>Continue</button></div>
-<div id=w class=warn></div>
-`);
+/* ===== QUESTION ===== */
+function renderQuestion(){
+  state.start=Date.now();
+  panel(`
+  <div class="top">
+    <div class="badge">${state.q+1}/${TOTAL}</div>
+    <div class="badge ${state.trickChance>=50?"danger":""}">
+      Trick ${state.trickChance.toFixed(1)}%
+    </div>
+  </div>
+  <div class="progress">
+    <div style="width:${(state.q/TOTAL)*100}%"></div>
+  </div>
+  <p>${QUESTIONS[state.q]}</p>
+  <textarea id="ans"
+    oninput="document.getElementById('go').disabled=!this.value.trim()">
+  </textarea>
+  <div class="row">
+    <button id="go" disabled onclick="submit()">Continue</button>
+  </div>
+  <div id="warn" class="warn"></div>
+  `);
 }
 
+/* ===== SUBMIT ===== */
 function submit(){
-if(Date.now()-state.start<3000)return warn("Too fast");
-const t=document.getElementById("a").value;
-if(!valid(t))return warn("Weak answer");
-state.q++;
-state.trickChance=Math.min(100,state.trickChance+1);
-maybeTrick();render();
+  if(Date.now()-state.start<3000) return warning("Too fast");
+  const t=document.getElementById("ans").value;
+  if(!validAnswer(t)) return warning("Answer too weak");
+
+  state.q++;
+  state.trickChance=Math.min(100,state.trickChance+1);
+  maybeTrick();
+  render();
 }
 
-function warn(m){
-state.warn++;
-document.getElementById("w").innerText=`⚠ ${m} (${state.warn}/2)`;
-if(state.warn>=2)kick();
+function warning(msg){
+  state.warn++;
+  document.getElementById("warn").innerText=`⚠ ${msg} (${state.warn}/2)`;
+  if(state.warn>=2) kick();
 }
 
 /* ===== TRICKS ===== */
 function maybeTrick(){
-if(Math.random()*100<state.trickChance){
-state.inTrick=true;
-state.trick={type:"clicker",score:0,ppc:1,
-u1:100,u10:1000,u100:10000,
-clicks:[],warn:0};
-}
+  if(Math.random()*100<state.trickChance){
+    state.inTrick=true;
+    state.trick={
+      type:"clicker",
+      score:0,
+      ppc:1,
+      u1:100,
+      u10:1000,
+      u100:10000,
+      clicks:[],
+      warn:0
+    };
+  }
 }
 
 /* ===== CLICKER ===== */
 function renderTrick(){
-const t=state.trick;
-const prog=Math.min(100,(t.score/1e6)*100);
-panel(`
-<h3 class=center>Clicker Verification</h3>
-<div class=money>${t.score.toLocaleString()} pts</div>
-<div>PPC: <b>${t.ppc}</b></div>
-<div class=progress><div style="width:${prog}%"></div></div>
+  const t=state.trick;
+  const prog=Math.min(100,(t.score/1e6)*100);
+  panel(`
+  <h3 class="center">Clicker Verification</h3>
+  <div class="money">${t.score.toLocaleString()} pts</div>
+  <p class="center">PPC: <b>${t.ppc}</b></p>
 
-<div class=row>
-<button onclick=click()>Click</button>
-<button onclick=buy(1)>+1 PPC (${t.u1})</button>
-<button onclick=buy(10)>+10 PPC (${t.u10})</button>
-<button onclick=buy(100)>+100 PPC (${t.u100})</button>
-</div>
+  <div class="progress"><div style="width:${prog}%"></div></div>
 
-${t.score>=1e6?'<div class=row><button onclick=pass()>Continue</button></div>':''}
-<div class=warn id=cw></div>
-`);
+  <div class="row">
+    <button onclick="clicker()">Click</button>
+    <button onclick="buy(1)">+1 PPC (${t.u1})</button>
+    <button onclick="buy(10)">+10 PPC (${t.u10})</button>
+    <button onclick="buy(100)">+100 PPC (${t.u100})</button>
+  </div>
+
+  ${t.score>=1e6
+    ? `<div class="row center"><button onclick="pass()">Continue</button></div>`
+    : ""
+  }
+
+  <div id="cw" class="warn"></div>
+  `);
 }
 
-function click(){
-const t=state.trick;
-t.score+=t.ppc;
-const now=Date.now();
-t.clicks.push(now);
-t.clicks=t.clicks.filter(x=>now-x<1000);
-const cps=t.clicks.length;
-if(cps>15 || cps===13){
-t.warn++;
-document.getElementById("cw").innerText=`⚠ CPS Warning (${t.warn}/2)`;
-if(t.warn>=2)kick();
-}
-renderTrick();
+function clicker(){
+  const t=state.trick;
+
+  // ADD POINTS (FIX)
+  t.score += t.ppc;
+
+  // CPS CHECK
+  const now=Date.now();
+  t.clicks.push(now);
+  t.clicks=t.clicks.filter(x=>now-x<1000);
+  const cps=t.clicks.length;
+
+  if(cps>15 || cps===13){
+    t.warn++;
+    document.getElementById("cw").innerText=`⚠ CPS Warning (${t.warn}/2)`;
+    if(t.warn>=2) return kick();
+  }
+
+  renderTrick();
 }
 
 function buy(n){
-const t=state.trick;
-let cost=n===1?t.u1:n===10?t.u10:t.u100;
-if(t.score<cost)return;
-t.score-=cost;t.ppc+=n;
-if(n===1)t.u1=Math.ceil(t.u1*1.1);
-if(n===10)t.u10=Math.ceil(t.u10*1.1);
-if(n===100)t.u100=Math.ceil(t.u100*1.1);
-renderTrick();
+  const t=state.trick;
+  let cost=n===1?t.u1:n===10?t.u10:t.u100;
+  if(t.score<cost) return;
+
+  t.score-=cost;
+  t.ppc+=n;
+
+  if(n===1) t.u1=Math.ceil(t.u1*1.1);
+  if(n===10) t.u10=Math.ceil(t.u10*1.1);
+  if(n===100) t.u100=Math.ceil(t.u100*1.1);
+
+  renderTrick();
 }
 
-function pass(){state.inTrick=false;state.trick=null;render()}
+function pass(){
+  state.inTrick=false;
+  state.trick=null;
+  render();
+}
+
+/* ===== DISQUALIFY ===== */
 function kick(){
-panel(`<h1 class=center>🚫 Disqualified</h1><button onclick=location.reload()>Restart</button>`);
+  panel(`
+    <h1 class="center">🚫 Disqualified</h1>
+    <div class="row center">
+      <button onclick="location.reload()">Restart</button>
+    </div>
+  `);
 }
 
-/* ===== END ===== */
+/* ===== FINISH ===== */
 function finish(){
-panel(`<h1 class=center>🎉 Survey Complete</h1><button onclick=location.reload()>Restart</button>`);
+  panel(`
+    <h1 class="center">🎉 Survey Complete</h1>
+    <div class="row center">
+      <button onclick="location.reload()">Play again</button>
+    </div>
+  `);
 }
 
 render();
