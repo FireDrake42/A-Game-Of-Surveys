@@ -1,368 +1,213 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>A Game Of Surveys — Canvas Edition</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <style>
-      :root {
-        --bg: #0f1220;
-        --card: #161a2e;
-        --accent: #7cf3c0;
-        --danger: #ff6b6b;
-        --text: #e9ecff;
-        --muted: #9aa3ff;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        background:
-          radial-gradient(1200px 600px at 10% -10%, #1c2240, transparent),
-          var(--bg);
-        color: var(--text);
-        font-family:
-          system-ui,
-          -apple-system,
-          Segoe UI,
-          Roboto,
-          Arial,
-          sans-serif;
-        overflow: hidden;
-      }
-      canvas {
-        display: block;
-      }
-      #ui {
-        position: fixed;
-        inset: 0;
-        pointer-events: none;
-      }
-      .panel {
-        pointer-events: auto;
-        max-width: 760px;
-        margin: 40px auto;
-        background: linear-gradient(
-          180deg,
-          rgba(255, 255, 255, 0.06),
-          rgba(255, 255, 255, 0.02)
-        );
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 20px;
-        padding: 26px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
-        animation: pop 0.4s ease;
-      }
-      @keyframes pop {
-        from {
-          transform: translateY(14px) scale(0.97);
-          opacity: 0;
-        }
-        to {
-          opacity: 1;
-        }
-      }
-      h1,
-      h2,
-      h3 {
-        margin: 0 0 12px;
-      }
-      p {
-        line-height: 1.6;
-      }
-      .top {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 12px;
-      }
-      .badge {
-        padding: 6px 12px;
-        border-radius: 999px;
-        background: #22286b;
-        color: #cfd4ff;
-        font-size: 13px;
-      }
-      .badge.danger {
-        background: #4a1d2a;
-        color: #ffb3b3;
-      }
-      .progress {
-        height: 10px;
-        background: #22286b;
-        border-radius: 999px;
-        overflow: hidden;
-        margin: 12px 0;
-      }
-      .progress > div {
-        height: 100%;
-        background: linear-gradient(90deg, var(--accent), #8fd3ff);
-        transition: width 0.35s ease;
-      }
-      textarea {
-        width: 100%;
-        min-height: 120px;
-        background: #0e1230;
-        color: var(--text);
-        border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 14px;
-        padding: 14px;
-        outline: none;
-      }
-      textarea:focus {
-        border-color: var(--accent);
-        box-shadow: 0 0 0 2px rgba(124, 243, 192, 0.2);
-      }
-      button {
-        background: linear-gradient(180deg, #8af3c8, #57d6a1);
-        color: #06281a;
-        border: none;
-        padding: 12px 20px;
-        border-radius: 14px;
-        font-weight: 700;
-        cursor: pointer;
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-      }
-      .row {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-      .options button {
-        flex: 1;
-      }
-      .center {
-        text-align: center;
-      }
-      .warn {
-        color: var(--danger);
-        font-weight: 700;
-        margin-top: 8px;
-      }
-      .money {
-        font-size: 42px;
-        color: var(--accent);
-        margin: 20px 0;
-        text-shadow: 0 0 20px rgba(124, 243, 192, 0.6);
-      }
-      .sliderValue {
-        font-size: 22px;
-        font-weight: 800;
-        color: var(--accent);
-        margin: 10px 0;
-        text-align: center;
-      }
-    </style>
-  </head>
-  <body>
-    <canvas id="bg"></canvas>
-    <div id="ui"></div>
-    <script>
-      /* ===== CANVAS BACKGROUND ===== */
-      const canvas = document.getElementById("bg"),
-        ctx = canvas.getContext("2d");
-      let W,
-        H,
-        particles = [];
-      function resize() {
-        W = canvas.width = innerWidth;
-        H = canvas.height = innerHeight;
-      }
-      addEventListener("resize", resize);
-      resize();
-      for (let i = 0; i < 140; i++)
-        particles.push({
-          x: Math.random() * W,
-          y: Math.random() * H,
-          r: Math.random() * 2 + 0.6,
-          vx: (Math.random() - 0.5) * 0.35,
-          vy: (Math.random() - 0.5) * 0.35,
-        });
-      (function tick() {
-        ctx.clearRect(0, 0, W, H);
-        for (const p of particles) {
-          p.x += p.vx;
-          p.y += p.vy;
-          if (p.x < 0 || p.x > W) p.vx *= -1;
-          if (p.y < 0 || p.y > H) p.vy *= -1;
-          ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-          ctx.fillStyle = "rgba(124,243,192,.35)";
-          ctx.fill();
-        }
-        requestAnimationFrame(tick);
-      })();
+<head>
+<meta charset="UTF-8">
+<title>A Game Of Surveys — Canvas Edition</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+:root{
+--bg:#0f1220;--card:#161a2e;--accent:#7cf3c0;
+--danger:#ff6b6b;--text:#e9ecff;--muted:#9aa3ff}
+*{box-sizing:border-box}
+body{
+margin:0;background:radial-gradient(1200px 600px at 10% -10%,#1c2240,transparent),var(--bg);
+color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial;
+overflow:hidden}
+canvas{display:block}
+#ui{position:fixed;inset:0;pointer-events:none}
+.panel{
+pointer-events:auto;max-width:760px;margin:40px auto;
+background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
+backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.12);
+border-radius:20px;padding:26px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.badge{padding:6px 12px;border-radius:999px;background:#22286b;color:#cfd4ff;font-size:13px}
+.badge.danger{background:#4a1d2a;color:#ffb3b3}
+.progress{height:10px;background:#22286b;border-radius:999px;overflow:hidden;margin:12px 0}
+.progress>div{height:100%;background:linear-gradient(90deg,var(--accent),#8fd3ff)}
+textarea{
+width:100%;min-height:120px;background:#0e1230;color:var(--text);
+border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:14px}
+button{
+background:linear-gradient(180deg,#8af3c8,#57d6a1);
+border:none;padding:12px 20px;border-radius:14px;font-weight:700;cursor:pointer}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.options button{flex:1}
+.center{text-align:center}
+.warn{color:var(--danger);font-weight:700;margin-top:8px}
+.money{font-size:42px;color:var(--accent)}
+.sliderValue{font-size:22px;font-weight:800;color:var(--accent);text-align:center}
+</style>
+</head>
+<body>
 
-      /* ===== STATE ===== */
-      let state = {
-        questionIndex: 0,
-        answered: [],
-        trickChance: 5,
-        inTrick: false,
-        trickData: null,
-        warnings: 0,
-        startTime: 0,
-      };
-      const TOTAL_QUESTIONS = 20;
+<canvas id="bg"></canvas>
+<div id="ui"></div>
 
-      /* ===== QUESTIONS ===== */
-      const QUESTIONS = [
-        "What does success mean to you?",
-        "What motivates you to work hard?",
-        "Describe a goal you achieved.",
-        "How do you handle failure?",
-        "What skill would you like to improve?",
-        "What inspires you creatively?",
-        "How do you stay focused?",
-        "What is your biggest strength?",
-        "How do you manage stress?",
-        "What motivates long-term goals?",
-        "What helps you stay disciplined?",
-        "What does teamwork mean?",
-        "How do you learn best?",
-        "What drives personal growth?",
-        "What does responsibility mean?",
-        "How do you stay organized?",
-        "What is meaningful work?",
-        "How do you handle setbacks?",
-        "What builds resilience?",
-        "What does leadership mean?",
-        "What encourages innovation?",
-        "How do you evaluate success?",
-        "What helps decision making?",
-        "What motivates improvement?",
-        "What inspires learning?",
-        "What does balance mean to you?",
-        "How do you stay curious?",
-        "What builds confidence?",
-        "What makes work enjoyable?",
-        "What defines progress?",
-      ];
+<script>
+/* ===== CANVAS ===== */
+const canvas=bg,ctx=canvas.getContext("2d");
+let W,H,particles=[];
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+addEventListener("resize",resize);resize();
+for(let i=0;i<120;i++)particles.push({
+x:Math.random()*W,y:Math.random()*H,r:Math.random()*2+.6,
+vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3});
+(function tick(){
+ctx.clearRect(0,0,W,H);
+for(const p of particles){
+p.x+=p.vx;p.y+=p.vy;
+if(p.x<0||p.x>W)p.vx*=-1;
+if(p.y<0||p.y>H)p.vy*=-1;
+ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+ctx.fillStyle="rgba(124,243,192,.35)";ctx.fill()}
+requestAnimationFrame(tick)})();
 
-      const ui = document.getElementById("ui");
-      const validText = (t) => {
-        if (!t) return false;
-        const w = t.trim().split(/\s+/);
-        return w.length >= 5 && new Set(w).size >= 3;
-      };
-      const panel = (html) => (ui.innerHTML = `<div class=panel>${html}</div>`);
+/* ===== STATE ===== */
+let state={
+q:0,answered:[],trickChance:5,inTrick:false,trick:null,warn:0,start:0};
 
-      function render() {
-        if (state.questionIndex >= TOTAL_QUESTIONS) return finish();
-        if (state.inTrick) return renderTrick();
-        renderQuestion();
-      }
+/* ===== SAVE / LOAD ===== */
+function save(){localStorage.setItem("surveySave",JSON.stringify(state))}
+function load(){
+const d=localStorage.getItem("surveySave");
+if(!d)return false;
+state=JSON.parse(d);return true}
+function reset(){localStorage.removeItem("surveySave");location.reload()}
 
-      function renderQuestion() {
-        const remaining = QUESTIONS.filter((q) => !state.answered.includes(q));
-        state.current = remaining[Math.floor(Math.random() * remaining.length)];
-        state.startTime = Date.now();
-        const progress = (state.questionIndex / TOTAL_QUESTIONS) * 100;
-        panel(`
-    <div class=top><div class=badge>Question ${state.questionIndex + 1}/${TOTAL_QUESTIONS}</div><div class="badge ${state.trickChance >= 25 ? "danger" : ""}">Trick ${state.trickChance}%</div></div>
-    <div class=progress><div style="width:${progress}%"></div></div>
-    <p>${state.current}</p>
-    <textarea id=answer placeholder="Answer honestly…"></textarea>
-    <div class=row><button onclick=submit()>Submit</button></div>
-    <div id=warn class=warn></div>
-  `);
-      }
+/* ===== QUESTIONS ===== */
+const QUESTIONS=[
+"What does success mean to you?",
+"What motivates you to work hard?",
+"Describe a challenge you overcame.",
+"How do you handle failure?",
+"What skill are you improving right now?",
+"What inspires you creatively?",
+"How do you stay focused?",
+"What is your biggest strength?",
+"How do you manage stress?",
+"What keeps you disciplined?",
+"What does teamwork mean to you?",
+"How do you learn best?",
+"What drives your personal growth?",
+"What does responsibility mean to you?",
+"How do you stay organized?",
+"What makes work meaningful?",
+"How do you handle setbacks?",
+"What builds resilience for you?",
+"What defines leadership?",
+"What motivates long-term goals?"
+];
+const TOTAL=QUESTIONS.length;
+const ui=document.getElementById("ui");
+const panel=h=>ui.innerHTML=`<div class=panel>${h}</div>`;
+const validText=t=>{
+const w=t.trim().split(/\s+/);
+return w.length>=6&&new Set(w).size>=4};
 
-      function submit() {
-        if (Date.now() - state.startTime < 4000)
-          return addWarning("Too fast! Minimum 4 seconds.");
-        const t = document.getElementById("answer").value;
-        if (!validText(t)) return addWarning("Answer too weak.");
-        state.answered.push(state.current);
-        state.questionIndex++;
-        maybeTrick();
-        render();
-      }
+/* ===== RENDER ===== */
+function render(){
+save();
+if(state.q>=TOTAL)return finish();
+if(state.inTrick)return renderTrick();
+renderQuestion();
+}
 
-      function addWarning(msg) {
-        state.warnings++;
-        document.getElementById("warn").innerText =
-          `⚠ ${msg} (${state.warnings}/2 warnings)`;
-        if (state.warnings >= 2) kick();
-      }
-      function kick() {
-        panel(
-          `<h1 class=center>🚫 Disqualified</h1><p class=center>Too many warnings.</p><div class=row><button onclick=location.reload()>Restart</button></div>`,
-        );
-      }
+function renderQuestion(){
+state.start=Date.now();
+const progress=(state.q/TOTAL)*100;
+panel(`
+<div class=top>
+<div class=badge>Question ${state.q+1}/${TOTAL}</div>
+<div class="badge ${state.trickChance>=50?"danger":""}">
+Trick ${state.trickChance}%
+</div>
+</div>
+<div class=progress><div style="width:${progress}%"></div></div>
+<p>${QUESTIONS[state.q]}</p>
+<textarea id=a placeholder="Answer honestly…"></textarea>
+<div class=row><button onclick=submit()>Continue</button></div>
+<div id=w class=warn></div>`);
+}
 
-      /* ===== TRICKS ===== */
-      function maybeTrick() {
-        state.trickChance = Math.min(30, state.trickChance + 1);
-        if (Math.random() * 100 < state.trickChance) {
-          state.inTrick = true;
-          spawnTrick();
-        }
-      }
-      function spawnTrick() {
-        const r = Math.random();
-        if (r < 0.2) state.trickData = { type: "letter" };
-        else if (r < 0.4) state.trickData = { type: "image" };
-        else if (r < 0.6) state.trickData = { type: "slider" };
-        else state.trickData = { type: "clicker", score: 0 };
-      }
+function submit(){
+if(Date.now()-state.start<4000)return warn("Too fast.");
+const t=a.value;
+if(!validText(t))return warn("Answer too weak.");
+state.q++;state.answered.push(t);
+maybeTrick();render();
+}
 
-      function renderTrick() {
-        const t = state.trickData.type;
-        if (t === "letter")
-          panel(
-            `<h3>Select <b>D</b></h3><div class=row options>${["A", "B", "C", "D"].map((l) => `<button onclick=letter('${l}')>${l}</button>`).join("")}</div>`,
-          );
-        if (t === "image")
-          panel(
-            `<h3>What is this?</h3><img src="tomato.png" style="max-width:200px"><div class=row options>${["Tomato", "Corn", "Egg", "Avocado"].map((o) => `<button onclick=imagePick('${o}')>${o}</button>`).join("")}</div>`,
-          );
-        if (t === "slider") {
-          const target = Math.floor(Math.random() * 10) + 1;
-          const start = Math.floor(Math.random() * 10) + 1;
-          state.trickData.correct = target;
-          panel(
-            `<h3>Slide to ${target}</h3><div class=sliderValue id=sv>${start}</div><input type=range id=s min=1 max=10 value=${start} oninput="sv.innerText=this.value"><div class=row><button onclick=slider()>Submit</button></div>`,
-          );
-        }
-        if (t === "clicker")
-          panel(
-            `<h3>Click 50 times</h3><h2 id=sc class=center>${state.trickData.score}</h2><div class=row><button onclick=clicker()>Click</button></div>`,
-          );
-      }
+function warn(m){
+state.warn++;w.innerText=`⚠ ${m} (${state.warn}/2)`;
+if(state.warn>=2)kick();
+}
 
-      function letter(l) {
-        l === "D" ? passTrick() : kick();
-      }
-      function imagePick(o) {
-        o === "Tomato" ? passTrick() : kick();
-      }
-      function slider() {
-        document.getElementById("s").value == state.trickData.correct
-          ? passTrick()
-          : kick();
-      }
-      function clicker() {
-        state.trickData.score++;
-        document.getElementById("sc").innerText = state.trickData.score;
-        if (state.trickData.score >= 50) passTrick();
-      }
-      function passTrick() {
-        state.inTrick = false;
-        state.trickData = null;
-        render();
-      }
+function kick(){
+localStorage.removeItem("surveySave");
+panel(`<h1 class=center>🚫 Disqualified</h1>
+<p class=center>Progress erased.</p>
+<div class=row>
+<button onclick=reset()>Restart</button>
+</div>`);
+}
 
-      function finish() {
-        const reward = Math.floor(Math.random() * 51) + 40;
-        panel(
-          `<h1 class=center>🎉 Survey Completed!</h1><div class=center><img src="https://media.istockphoto.com/id/1125716911/es/vector/partido-popper-con-confeti.jpg?s=612x612&w=0&k=20&c=22BJBr7cPfVel8jl8mKEQjno0U1HqVMiEQiqttVucPY=" style="max-width:160px"></div><div class=center money>You won ${reward}c!</div><div class=row><button onclick=location.reload()>Do it again</button></div>`,
-        );
-      }
+/* ===== TRICKS ===== */
+function maybeTrick(){
+state.trickChance=Math.min(100,state.trickChance+1);
+if(Math.random()*100<state.trickChance){
+state.inTrick=true;spawnTrick();}
+}
 
-      render();
-    </script>
-  </body>
+function spawnTrick(){
+const r=Math.random();
+if(r<.25)state.trick={t:"letter"};
+else if(r<.5)state.trick={t:"image"};
+else if(r<.75)state.trick={t:"slider",c:1+Math.floor(Math.random()*10)};
+else state.trick={t:"click",s:0};
+}
+
+function renderTrick(){
+const t=state.trick.t;
+if(t==="letter")panel(`<h3>Select D</h3>
+<div class="row options">${["A","B","C","D"].map(l=>`<button onclick=letter('${l}')>${l}</button>`).join("")}</div>`);
+if(t==="image")panel(`<h3>What is this?</h3>
+<img src="tomato.png" style="max-width:200px">
+<div class="row options">${["Corn","Tomato","Egg","Avocado"].map(o=>`<button onclick=imagePick('${o}')>${o}</button>`).join("")}</div>`);
+if(t==="slider")panel(`<h3>Slide to ${state.trick.c}</h3>
+<div class=sliderValue id=sv>5</div>
+<input type=range id=s min=1 max=10 value=5 oninput="sv.innerText=this.value">
+<div class=row><button onclick=slider()>Submit</button></div>`);
+if(t==="click")panel(`<h3>Click 50 times</h3>
+<h2 class=center id=sc>${state.trick.s}</h2>
+<div class=row><button onclick=clicker()>Click Me</button></div>`);
+}
+
+function letter(l){l==="D"?pass():kick()}
+function imagePick(o){o==="Tomato"?pass():kick()}
+function slider(){s.value==state.trick.c?pass():kick()}
+function clicker(){
+state.trick.s++;sc.innerText=state.trick.s;
+if(state.trick.s>=50)pass();
+}
+function pass(){
+state.inTrick=false;state.trick=null;render();
+}
+
+function finish(){
+panel(`<h1 class=center>🎉 Survey Completed</h1>
+<p class=center>You passed all checks.</p>
+<div class=row><button onclick=reset()>Restart</button></div>`);
+}
+
+/* ===== START ===== */
+if(!load()){
+panel(`<h1 class=center>A Game Of Surveys</h1>
+<p class=center>Your progress is saved automatically.</p>
+<div class=row center>
+<button onclick=render()>Start</button>
+</div>`);
+}else render();
+</script>
+</body>
 </html>
