@@ -2,11 +2,12 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>A Game Of Surveys — Canvas Edition</title>
+<title>A Game Of Surveys — Fixed Clicker</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
 <style>
 :root{
---bg:#0f1220;--card:#161a2e;--accent:#7cf3c0;--danger:#ff6b6b;--text:#e9ecff;--muted:#9aa3ff
+--bg:#0f1220;--card:#161a2e;--accent:#7cf3c0;--danger:#ff6b6b;--text:#e9ecff
 }
 *{box-sizing:border-box}
 body{
@@ -23,26 +24,12 @@ pointer-events:auto;
 max-width:760px;
 margin:40px auto;
 background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.02));
-backdrop-filter:blur(10px);
-border:1px solid rgba(255,255,255,.12);
 border-radius:20px;
 padding:26px;
 box-shadow:0 20px 60px rgba(0,0,0,.45)
 }
-.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
-.badge{padding:6px 12px;border-radius:999px;background:#22286b;color:#cfd4ff;font-size:13px}
-.badge.danger{background:#4a1d2a;color:#ffb3b3}
-.progress{height:10px;background:#22286b;border-radius:999px;overflow:hidden;margin:12px 0}
-.progress>div{height:100%;background:linear-gradient(90deg,var(--accent),#8fd3ff)}
-textarea{
-width:100%;
-min-height:120px;
-background:#0e1230;
-color:var(--text);
-border:1px solid rgba(255,255,255,.15);
-border-radius:14px;
-padding:14px
-}
+.center{text-align:center}
+.row{display:flex;gap:12px;flex-wrap:wrap;justify-content:center}
 button{
 background:linear-gradient(180deg,#8af3c8,#57d6a1);
 border:none;
@@ -52,12 +39,22 @@ font-weight:700;
 cursor:pointer
 }
 button:disabled{opacity:.4;cursor:not-allowed}
-.row{display:flex;gap:12px;flex-wrap:wrap}
-.center{text-align:center}
-.money{font-size:36px;color:var(--accent)}
+.money{font-size:40px;color:var(--accent)}
+.progress{
+height:10px;
+background:#22286b;
+border-radius:999px;
+overflow:hidden;
+margin:12px 0
+}
+.progress>div{
+height:100%;
+background:linear-gradient(90deg,var(--accent),#8fd3ff)
+}
 .shop button{flex:1}
 </style>
 </head>
+
 <body>
 
 <canvas id="bg"></canvas>
@@ -66,175 +63,109 @@ button:disabled{opacity:.4;cursor:not-allowed}
 <script>
 /* ===== Canvas ===== */
 const canvas=document.getElementById("bg"),ctx=canvas.getContext("2d");
-let W,H;
-function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight}
 addEventListener("resize",resize);resize();
-const particles=[...Array(140)].map(()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2+.6,vx:(Math.random()-.5)*.35,vy:(Math.random()-.5)*.35}));
-(function tick(){
-ctx.clearRect(0,0,W,H);
-for(const p of particles){
+const parts=[...Array(120)].map(()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,r:Math.random()*2+1}));
+(function loop(){
+ctx.clearRect(0,0,canvas.width,canvas.height);
+for(const p of parts){
 p.x+=p.vx;p.y+=p.vy;
-if(p.x<0||p.x>W)p.vx*=-1;
-if(p.y<0||p.y>H)p.vy*=-1;
+if(p.x<0||p.x>canvas.width)p.vx*=-1;
+if(p.y<0||p.y>canvas.height)p.vy*=-1;
 ctx.beginPath();
 ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
 ctx.fillStyle="rgba(124,243,192,.35)";
-ctx.fill()
+ctx.fill();
 }
-requestAnimationFrame(tick)
+requestAnimationFrame(loop);
 })();
 
-/* ===== Survey State ===== */
-const TOTAL=20;
-const QUESTIONS=[
-"What does success mean to you?",
-"What motivates you to work hard?",
-"How do you handle failure?",
-"What skill do you want to improve?",
-"What inspires you creatively?",
-"How do you stay focused?",
-"What is your biggest strength?",
-"How do you manage stress?",
-"What helps you stay disciplined?",
-"What does teamwork mean to you?",
-"How do you learn best?",
-"What drives personal growth?",
-"What does responsibility mean?",
-"What makes work meaningful?",
-"How do you handle setbacks?",
-"What builds resilience?",
-"What does leadership mean?",
-"What encourages innovation?",
-"What defines progress for you?",
-"What keeps you motivated long term?"
-];
-
-let state={
-index:0,
-trickChance:5,
-trickMeter:0,
-inTrick:false,
-trick:null
-};
-
+/* ===== UI Helper ===== */
 const ui=document.getElementById("ui");
-const panel=h=>ui.innerHTML=`<div class="panel">${h}</div>`;
+const panel=html=>ui.innerHTML=`<div class="panel">${html}</div>`;
 
-/* ===== Survey ===== */
-function render(){
-if(state.index>=TOTAL)return finish();
-if(state.inTrick)return renderTrick();
-renderQuestion();
-}
-
-function renderQuestion(){
-panel(`
-<div class="top">
-<div class="badge">Question ${state.index+1}/${TOTAL}</div>
-<div class="badge ${state.trickChance>=50?"danger":""}">Trick ${state.trickChance}%</div>
-</div>
-<div class="progress"><div style="width:${(state.index/TOTAL)*100}%"></div></div>
-<p>${QUESTIONS[state.index]}</p>
-<textarea id="ans" placeholder="Type at least one word..."></textarea>
-<div class="row">
-<button id="next" disabled>Continue</button>
-</div>
-`);
-
-const a=document.getElementById("ans");
-const b=document.getElementById("next");
-a.addEventListener("input",()=>b.disabled=!a.value.trim());
-b.onclick=()=>{
-state.index++;
-state.trickChance=Math.min(100,state.trickChance+1);
-maybeTrick();
-render();
-};
-}
-
-/* ===== Reliable Trick Chance ===== */
-function maybeTrick(){
-state.trickMeter+=state.trickChance;
-if(state.trickMeter>=100||Math.random()*100<state.trickMeter){
-state.trickMeter=0;
-spawnTrick();
-}
-}
-
-function spawnTrick(){
-state.inTrick=true;
-state.trick={
-type:"clicker",
+/* ===== Game State ===== */
+let inClicker=true; // force demo
+let clicker={
 score:0,
 ppc:1,
 prices:{p1:100,p10:1000,p100:10000}
 };
-}
 
-/* ===== Clicker Game ===== */
-function renderTrick(){
-const t=state.trick;
+/* ===== Clicker Render ===== */
+function renderClicker(){
 panel(`
-<h3 class=center>Clicker Verification</h3>
+<h2 class="center">Clicker Verification</h2>
 
-<div class="money center">${Math.floor(t.score)}</div>
+<div class="money center" id="score">${clicker.score}</div>
+
 <div class="progress">
-<div style="width:${Math.min(100,(t.score/1_000_000)*100)}%"></div>
+  <div style="width:${Math.min(100,clicker.score/1_000_000*100)}%"></div>
 </div>
 
-<p class="center">PPC: <b>${t.ppc}</b></p>
+<p class="center">PPC: <b id="ppc">${clicker.ppc}</b></p>
 
-<div class="row center">
-<button onclick="click()">Click</button>
+<div class="row">
+  <button id="clickBtn">Click</button>
 </div>
 
 <div class="shop">
 <p><b>Upgrades</b></p>
 <div class="row">
-<button onclick="buy('p1')">+1 PPC (${Math.floor(t.prices.p1)})</button>
-<button onclick="buy('p10')">+10 PPC (${Math.floor(t.prices.p10)})</button>
-<button onclick="buy('p100')">+100 PPC (${Math.floor(t.prices.p100)})</button>
+  <button id="u1">+1 PPC (${Math.floor(clicker.prices.p1)})</button>
+  <button id="u10">+10 PPC (${Math.floor(clicker.prices.p10)})</button>
+  <button id="u100">+100 PPC (${Math.floor(clicker.prices.p100)})</button>
 </div>
 </div>
 
-${t.score>=1_000_000?'<div class="row center"><button onclick="pass()">Continue</button></div>':""}
+${clicker.score>=1_000_000?'<div class="row"><button id="cont">Continue</button></div>':""}
 `);
+
+bindClickerEvents();
 }
 
-function click(){
-state.trick.score+=state.trick.ppc;
-renderTrick();
+/* ===== Bind Events (CRITICAL FIX) ===== */
+function bindClickerEvents(){
+document.getElementById("clickBtn").onclick=()=>{
+clicker.score+=clicker.ppc;
+updateClickerUI();
+};
+
+document.getElementById("u1").onclick=()=>buy("p1",1);
+document.getElementById("u10").onclick=()=>buy("p10",10);
+document.getElementById("u100").onclick=()=>buy("p100",100);
+
+if(clicker.score>=1_000_000){
+document.getElementById("cont").onclick=()=>{
+panel("<h1 class=center>✅ Passed Clicker</h1>");
+};
+}
 }
 
-function buy(type){
-const t=state.trick;
-const cost=t.prices[type];
-if(t.score<cost)return;
-t.score-=cost;
-if(type==="p1")t.ppc+=1;
-if(type==="p10")t.ppc+=10;
-if(type==="p100")t.ppc+=100;
-t.prices[type]*=1.1;
-renderTrick();
+/* ===== Update UI WITHOUT RESET ===== */
+function updateClickerUI(){
+document.getElementById("score").innerText=clicker.score;
+document.getElementById("ppc").innerText=clicker.ppc;
+document.querySelector(".progress > div").style.width=
+Math.min(100,clicker.score/1_000_000*100)+"%";
+
+if(clicker.score>=1_000_000 && !document.getElementById("cont")){
+renderClicker(); // add continue button once
+}
 }
 
-function pass(){
-state.inTrick=false;
-state.trick=null;
-render();
+/* ===== Buy Upgrade ===== */
+function buy(key,amount){
+const cost=clicker.prices[key];
+if(clicker.score<cost)return;
+clicker.score-=cost;
+clicker.ppc+=amount;
+clicker.prices[key]*=1.1;
+renderClicker();
 }
 
-/* ===== Finish ===== */
-function finish(){
-panel(`
-<h1 class="center">🎉 Survey Completed</h1>
-<div class="center">
-<button onclick="location.reload()">Restart</button>
-</div>
-`);
-}
-
-render();
+/* ===== Start ===== */
+renderClicker();
 </script>
 </body>
 </html>
