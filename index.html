@@ -1,43 +1,286 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>A Game Of Surveys</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
+<title>Survey Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
-:root{
---bg:#0f1220;--accent:#7cf3c0;--danger:#ff6b6b;--text:#e9ecff
-}
-*{box-sizing:border-box}
 body{
-margin:0;
-background:radial-gradient(1200px 600px at 10% -10%,#1c2240,transparent),var(--bg);
-color:var(--text);
-font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;
-overflow:hidden
+  margin:0;
+  background:#0f1220;
+  color:#e9ecff;
+  font-family:Arial,Helvetica,sans-serif;
 }
-canvas{display:block}
-#ui{position:fixed;inset:0;pointer-events:none}
-.panel{
-pointer-events:auto;
-max-width:760px;
-margin:40px auto;
-background:rgba(22,26,46,.85);
-border-radius:20px;
-padding:26px;
-box-shadow:0 20px 60px rgba(0,0,0,.45)
+#app{
+  min-height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
 }
-.top{display:flex;justify-content:space-between;align-items:center}
-.badge{padding:6px 12px;border-radius:999px;background:#22286b}
-.badge.danger{background:#4a1d2a;color:#ffb3b3}
-.progress{height:10px;background:#22286b;border-radius:999px;overflow:hidden;margin:12px 0}
-.progress>div{height:100%;background:linear-gradient(90deg,var(--accent),#8fd3ff)}
+.card{
+  width:90%;
+  max-width:700px;
+  background:#161a2e;
+  padding:24px;
+  border-radius:16px;
+}
+.top{
+  display:flex;
+  justify-content:space-between;
+  font-size:14px;
+}
+.warn{color:#ff6b6b}
+.progress{
+  height:12px;
+  background:#22286b;
+  border-radius:10px;
+  overflow:hidden;
+  margin:12px 0;
+}
+.progress div{
+  height:100%;
+  background:linear-gradient(90deg,#7cf3c0,#8fd3ff);
+}
 textarea{
-width:100%;min-height:120px;
-background:#0e1230;color:var(--text);
-border:1px solid rgba(255,255,255,.15);
-border-radius:14px;padding:14px
+  width:100%;
+  min-height:100px;
+  background:#0e1230;
+  color:white;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.2);
+  padding:10px;
 }
 button{
-background:linear-gradient(180deg,#8af3c8,#57d6a1);
-border
+  background:#7cf3c0;
+  border:none;
+  padding:10px 16px;
+  border-radius:10px;
+  font-weight:bold;
+  cursor:pointer;
+}
+button:disabled{opacity:.4;cursor:not-allowed}
+.center{text-align:center}
+.row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.money{font-size:32px;color:#7cf3c0}
+</style>
+</head>
+
+<body>
+<div id="app"></div>
+
+<script>
+/* ---------------- DATA ---------------- */
+const QUESTIONS=[
+"What does success mean to you?",
+"What motivates you to stay focused?",
+"How do you usually handle stress?",
+"What skill are you currently improving?",
+"What makes a task feel meaningful?",
+"What helps you stay disciplined?",
+"How do you handle failure?",
+"What motivates long-term goals?",
+"What does responsibility mean to you?",
+"What makes teamwork effective?",
+"What inspires you creatively?",
+"What does growth mean to you?",
+"What helps you stay productive?",
+"What makes work satisfying?",
+"What does leadership mean to you?",
+"What helps you overcome setbacks?",
+"What makes learning effective?",
+"What defines progress for you?",
+"What keeps you motivated daily?",
+"What makes a goal worth pursuing?"
+];
+
+/* ---------------- STATE ---------------- */
+let state = JSON.parse(localStorage.getItem("save")) || {
+  q:0,
+  trickChance:5,
+  inTrick:false,
+  trick:null
+};
+
+const app=document.getElementById("app");
+const save=()=>localStorage.setItem("save",JSON.stringify(state));
+
+/* ---------------- START ---------------- */
+if(state.q>0 || state.inTrick){
+  renderResume();
+}else{
+  renderSurvey();
+}
+
+/* ---------------- SURVEY ---------------- */
+function renderSurvey(){
+  save();
+  if(state.inTrick) return renderTrick();
+  if(state.q>=QUESTIONS.length) return finish();
+
+  const pct=Math.round((state.q/QUESTIONS.length)*100);
+
+  app.innerHTML=`
+    <div class="card">
+      <div class="top">
+        <div>${pct}% complete</div>
+        <div class="${state.trickChance>=50?'warn':''}">
+          Trick Chance: ${state.trickChance}%
+        </div>
+      </div>
+
+      <div class="progress">
+        <div style="width:${pct}%"></div>
+      </div>
+
+      <p>${QUESTIONS[state.q]}</p>
+      <textarea id="ans"></textarea>
+
+      <div class="row">
+        <button id="next" disabled>Continue</button>
+      </div>
+    </div>
+  `;
+
+  const ans=document.getElementById("ans");
+  const next=document.getElementById("next");
+
+  ans.oninput=()=>{
+    next.disabled=!ans.value.trim().match(/\b\w+\b/);
+  };
+
+  next.onclick=()=>{
+    state.q++;
+    state.trickChance=Math.min(100,state.trickChance+1);
+    rollTrick();
+    renderSurvey();
+  };
+}
+
+/* ---------------- TRICK LOGIC ---------------- */
+function rollTrick(){
+  if(Math.random()*100 < state.trickChance){
+    spawnTrick();
+  }
+}
+
+function spawnTrick(){
+  state.inTrick=true;
+  const r=Math.random();
+  if(r<0.25) state.trick={type:"letter"};
+  else if(r<0.5) state.trick={type:"image"};
+  else if(r<0.75) state.trick={type:"slider",target:1+Math.floor(Math.random()*10)};
+  else state.trick={type:"clicker",score:0,ppc:1};
+}
+
+/* ---------------- TRICKS ---------------- */
+function renderTrick(){
+  const t=state.trick;
+
+  if(t.type==="letter"){
+    app.innerHTML=`
+      <div class="card center">
+        <h3>Please select option D</h3>
+        <div class="row">
+          ${["A","B","C","D"].map(x=>`<button onclick="pickLetter('${x}')">${x}</button>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  if(t.type==="image"){
+    app.innerHTML=`
+      <div class="card center">
+        <h3>What is this image?</h3>
+        <img src="tomato.png" width="200">
+        <div class="row">
+          ${["Corn","Tomato","Egg","Avocado"].map(x=>`<button onclick="pickImage('${x}')">${x}</button>`).join("")}
+        </div>
+      </div>
+    `;
+  }
+
+  if(t.type==="slider"){
+    app.innerHTML=`
+      <div class="card center">
+        <h3>Slide to ${t.target}</h3>
+        <input type="range" id="s" min="1" max="10" value="5">
+        <div class="row"><button onclick="checkSlider()">Submit</button></div>
+      </div>
+    `;
+  }
+
+  if(t.type==="clicker"){
+    renderClicker();
+  }
+}
+
+/* ---------------- CLICKER ---------------- */
+function renderClicker(){
+  const t=state.trick;
+  const pct=Math.min(100,(t.score/1e6)*100);
+
+  app.innerHTML=`
+    <div class="card center">
+      <h3>Verification Clicker</h3>
+      <div class="money">${Math.floor(t.score)}</div>
+      <div class="progress"><div style="width:${pct}%"></div></div>
+      <p>PPC: ${t.ppc}</p>
+      <div class="row">
+        <button onclick="clickBtn()">Click</button>
+        <button onclick="buyPPC()" ${t.score<100?'disabled':''}>+1 PPC (100)</button>
+      </div>
+      ${t.score>=1e6?'<button onclick="passTrick()">Continue</button>':''}
+    </div>
+  `;
+}
+
+function clickBtn(){
+  state.trick.score+=state.trick.ppc;
+  save();
+  renderClicker();
+}
+function buyPPC(){
+  const t=state.trick;
+  if(t.score>=100){
+    t.score-=100;
+    t.ppc++;
+    renderClicker();
+  }
+}
+
+/* ---------------- TRICK CHECKS ---------------- */
+function pickLetter(l){l==="D"?passTrick():reset();}
+function pickImage(i){i==="Tomato"?passTrick():reset();}
+function checkSlider(){
+  document.getElementById("s").value==state.trick.target?passTrick():reset();
+}
+function passTrick(){
+  state.inTrick=false;
+  state.trick=null;
+  save();
+  renderSurvey();
+}
+
+/* ---------------- OTHER ---------------- */
+function renderResume(){
+  app.innerHTML=`
+    <div class="card center">
+      <h2>Resume survey?</h2>
+      <div class="row">
+        <button onclick="renderSurvey()">Resume</button>
+        <button onclick="reset()">Start Over</button>
+      </div>
+    </div>
+  `;
+}
+function finish(){
+  app.innerHTML=`<div class="card center"><h2>Survey Complete 🎉</h2></div>`;
+}
+function reset(){
+  localStorage.removeItem("save");
+  location.reload();
+}
+</script>
+</body>
+</html>
