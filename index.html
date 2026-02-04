@@ -120,6 +120,11 @@ let S=(()=>{
   }
 })();
 function save(){localStorage.setItem("save",JSON.stringify(S))}
+function resetSurvey(){
+  localStorage.removeItem("save");
+  S={q:0,trick:5};
+  renderSurvey();
+}
 
 /* ================= SURVEY ================= */
 function renderSurvey(){
@@ -193,7 +198,15 @@ function buyCrit(){if(C.pts>=C.critCost&&C.crit<.1){C.pts-=C.critCost;C.crit+=.0
 function buyCritM(){if(C.pts>=C.critMCost&&C.critM<5){C.pts-=C.critMCost;C.critM+=.1;renderClicker()}}
 
 /* ================= END ================= */
-function finish(){panel(`<h1 class=center>🎉 Survey Completed</h1>`)}
+function finish(){
+  panel(`
+    <h1 class=center>🎉 Survey Completed</h1>
+    <div class=center>
+      <button onclick="resetSurvey()">Start Over Survey</button>
+    </div>
+  `)
+}
+
 renderSurvey();
 </script>
 </body>
