@@ -3,61 +3,48 @@
 <head>
 <meta charset="UTF-8">
 <title>A Game of Surveys</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{
-  --bg:#0f1220; --accent:#7cf3c0; --danger:#ff6b6b; --text:#e9ecff;
+  --bg:#0f1220;--card:#161a2e;--accent:#7cf3c0;--danger:#ff6b6b;--text:#e9ecff
 }
 body{
-  margin:0; background:var(--bg); color:var(--text);
-  font-family:system-ui,Segoe UI,Arial;
-  overflow:hidden;
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:system-ui,Segoe UI,Arial;overflow:hidden
 }
-canvas{position:fixed; inset:0; z-index:-1}
-#ui{position:fixed; inset:0; display:flex; justify-content:center}
+canvas{position:fixed;inset:0;z-index:-1}
+#ui{position:fixed;inset:0;display:flex;justify-content:center}
 .panel{
-  margin-top:40px; max-width:760px; width:95%;
+  margin-top:40px;width:95%;max-width:760px;
   background:rgba(255,255,255,.06);
   backdrop-filter:blur(10px);
-  border-radius:20px; padding:24px;
+  border-radius:20px;padding:24px
+}
+.top{display:flex;justify-content:space-between}
+.badge{background:#22286b;padding:6px 12px;border-radius:99px;font-size:13px}
+.progress{height:10px;background:#22286b;border-radius:99px;overflow:hidden;margin:10px 0}
+.progress div{height:100%;background:var(--accent);transition:.3s}
+textarea{
+  width:100%;min-height:110px;background:#0e1230;color:var(--text);
+  border-radius:12px;padding:12px
 }
 button{
   background:linear-gradient(#8af3c8,#57d6a1);
-  border:none; border-radius:12px;
-  padding:10px 16px; font-weight:700; cursor:pointer;
-  margin:4px;
+  border:none;border-radius:12px;padding:10px 16px;
+  font-weight:800;cursor:pointer;margin:4px
 }
-textarea{
-  width:100%; min-height:100px;
-  background:#0e1230; color:var(--text);
-  border-radius:12px; padding:12px;
-}
-.progress{
-  height:10px; background:#22286b; border-radius:99px; overflow:hidden;
-}
-.progress div{
-  height:100%; background:var(--accent); transition:.3s;
-}
-.money{
-  font-size:36px; color:var(--accent); text-align:center;
-}
-.badge{
-  padding:6px 12px; border-radius:99px;
-  background:#22286b; font-size:13px;
-}
-.top{display:flex; justify-content:space-between; margin-bottom:10px}
+.big{font-size:28px;padding:22px 42px}
+.money{font-size:36px;color:var(--accent);text-align:center}
 .float{
-  position:fixed; pointer-events:none;
-  font-weight:900;
-  animation:float 1.1s ease-out forwards;
+  position:fixed;pointer-events:none;
+  font-weight:900;animation:float 1.1s ease-out forwards
 }
-.float.normal{font-size:28px; color:white}
-.float.crit{font-size:44px; color:#ff4b4b}
+.float.normal{font-size:34px;color:white}
+.float.crit{font-size:56px;color:#ff3b3b}
 @keyframes float{
-  from{transform:translateY(0) scale(1); opacity:1}
-  to{transform:translateY(-60px) scale(1.1); opacity:0}
+  to{transform:translateY(-80px) scale(1.15);opacity:0}
 }
+.shop{margin-top:12px;border-top:1px solid rgba(255,255,255,.1);padding-top:12px}
 </style>
 </head>
 
@@ -66,197 +53,166 @@ textarea{
 <div id="ui"></div>
 
 <script>
-/* ===== UTIL ===== */
+/* ========= HELPERS ========= */
 const fmt=n=>{
-  if(n>=1e9) return (n/1e9).toFixed(2)+"B";
-  if(n>=1e6) return (n/1e6).toFixed(2)+"M";
-  if(n>=1e3) return (n/1e3).toFixed(1)+"K";
-  return Math.floor(n);
-};
-
-/* ===== PARTICLES ===== */
-const canvas=document.getElementById("bg"),ctx=canvas.getContext("2d");
-let W,H,particles=[];
-function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
-addEventListener("resize",resize); resize();
-for(let i=0;i<140;i++){
-  particles.push({
-    x:Math.random()*W,y:Math.random()*H,
-    vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,
-    r:Math.random()*2+.5
-  });
+  if(n>=1e9)return(n/1e9).toFixed(2)+"B";
+  if(n>=1e6)return(n/1e6).toFixed(2)+"M";
+  if(n>=1e3)return(n/1e3).toFixed(1)+"K";
+  return Math.floor(n)
 }
+const ui=document.getElementById("ui");
+const panel=h=>ui.innerHTML=`<div class=panel>${h}</div>`;
+
+/* ========= PARTICLES ========= */
+const c=document.getElementById("bg"),x=c.getContext("2d");
+let W,H,p=[];
+function rs(){W=c.width=innerWidth;H=c.height=innerHeight}
+addEventListener("resize",rs);rs();
+for(let i=0;i<140;i++)p.push({
+  x:Math.random()*W,y:Math.random()*H,
+  vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*2+.5
+});
 (function anim(){
-  ctx.clearRect(0,0,W,H);
-  particles.forEach(p=>{
-    p.x+=p.vx; p.y+=p.vy;
-    if(p.x<0||p.x>W)p.vx*=-1;
-    if(p.y<0||p.y>H)p.vy*=-1;
-    ctx.beginPath();
-    ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-    ctx.fillStyle="rgba(124,243,192,.4)";
-    ctx.fill();
+  x.clearRect(0,0,W,H);
+  p.forEach(o=>{
+    o.x+=o.vx;o.y+=o.vy;
+    if(o.x<0||o.x>W)o.vx*=-1;
+    if(o.y<0||o.y>H)o.vy*=-1;
+    x.beginPath();x.arc(o.x,o.y,o.r,0,Math.PI*2);
+    x.fillStyle="rgba(124,243,192,.4)";x.fill();
   });
-  requestAnimationFrame(anim);
+  requestAnimationFrame(anim)
 })();
 
-/* ===== QUESTIONS ===== */
+/* ========= DATA ========= */
 const QUESTIONS=[
-  "What motivates you to succeed?",
+  "What motivates you?",
+  "How do you define success?",
   "How do you handle failure?",
-  "What does progress mean to you?",
   "What keeps you disciplined?",
-  "How do you manage stress?",
-  "What inspires you to learn?",
-  "What does success look like?",
-  "How do you stay focused?",
-  "What is your biggest strength?",
-  "What does teamwork mean to you?",
-  "How do you handle pressure?",
-  "What drives personal growth?",
-  "What helps you stay organized?",
-  "What does responsibility mean?",
-  "What motivates long-term goals?",
+  "What helps you focus?",
+  "What does progress mean to you?",
+  "How do you learn best?",
   "What builds confidence?",
+  "How do you manage stress?",
+  "What inspires growth?",
   "What makes work meaningful?",
-  "What does balance mean to you?",
-  "How do you adapt to change?",
-  "What does leadership mean?"
+  "How do you stay organized?",
+  "What drives improvement?",
+  "How do you make decisions?",
+  "What does leadership mean?",
+  "What motivates long-term goals?",
+  "What builds resilience?",
+  "What helps creativity?",
+  "What defines balance?",
+  "What keeps you curious?"
 ];
 
-/* ===== STATE ===== */
-const ui=document.getElementById("ui");
+/* ========= STATE ========= */
 let S=JSON.parse(localStorage.getItem("surveySave"))||{
-  q:0,trickChance:5,inTrick:false,trick:null
+  q:0,trickChance:5,inTrick:false
 };
 function save(){localStorage.setItem("surveySave",JSON.stringify(S))}
-function reset(){localStorage.removeItem("surveySave");location.reload()}
-function panel(h){ui.innerHTML=`<div class="panel">${h}</div>`}
 
-/* ===== MAIN ===== */
-function render(){
-  if(S.q>=QUESTIONS.length){
-    panel(`<h1>🎉 Survey Complete</h1><button onclick=reset()>Restart</button>`);
-    return;
-  }
-  if(S.inTrick) return renderTrick();
-
+/* ========= SURVEY ========= */
+function renderSurvey(){
+  if(S.q>=20)return finish();
+  const prog=(S.q/20)*100;
   panel(`
-    <div class="top">
-      <div class="badge">Question ${S.q+1}/20</div>
-      <div class="badge">Trick Chance: ${S.trickChance}%</div>
+    <div class=top>
+      <div class=badge>Question ${S.q+1}/20</div>
+      <div class=badge>Trick ${S.trickChance}%</div>
     </div>
-    <div class="progress"><div style="width:${(S.q/20)*100}%"></div></div>
+    <div class=progress><div style="width:${prog}%"></div></div>
     <p>${QUESTIONS[S.q]}</p>
-    <textarea id="answer" placeholder="Type at least one word…"></textarea>
-    <br><br>
-    <button onclick=submit()>Continue</button>
-    <button onclick=reset()>Start Over</button>
-  `);
+    <textarea id=ans></textarea>
+    <button onclick=submitQ()>Continue</button>
+  `)
+}
+function submitQ(){
+  if(!document.getElementById("ans").value.trim())return;
+  S.q++; S.trickChance=Math.min(30,S.trickChance+1);
   save();
+  Math.random()*100<S.trickChance ? startTrick() : renderSurvey();
 }
 
-function submit(){
-  const v=document.getElementById("answer").value.trim();
-  if(!v) return;
-  S.q++;
-  if(Math.random()*100<S.trickChance){
-    S.inTrick=true; spawnTrick();
-  }else S.trickChance+=1;
-  render();
-}
-
-/* ===== TRICKS ===== */
-function spawnTrick(){
+/* ========= TRICKS ========= */
+function startTrick(){
   const r=Math.random();
-  if(r<.2) S.trick={t:"letter"};
-  else if(r<.4) S.trick={t:"image"};
-  else if(r<.6) S.trick={t:"slider"};
-  else initClicker();
-}
-function renderTrick(){
-  const t=S.trick.t;
-  if(t==="letter") panel(`<h3>Select D</h3>${["A","B","C","D"].map(l=>`<button onclick="l('${l}')">${l}</button>`).join("")}`);
-  if(t==="image") panel(`<h3>What is this?</h3><img src="tomato.png" width=200><br>${["Tomato","Corn","Egg","Avocado"].map(o=>`<button onclick="img('${o}')">${o}</button>`).join("")}`);
-  if(t==="slider") panel(`<h3>Slide to 7</h3><input type=range min=1 max=10 id=s><br><button onclick="sl()">Submit</button>`);
-  if(t==="clicker") renderClicker();
-}
-function l(v){v==="D"?pass():reset()}
-function img(v){v==="Tomato"?pass():reset()}
-function sl(){document.getElementById("s").value==7?pass():reset()}
-function pass(){S.inTrick=false;S.trickChance+=1;render();save()}
-
-/* ===== CLICKER ===== */
-let C;
-function initClicker(){
-  C={
-    pts:0,ppc:1,
-    crit:0.1,multi:2,
-    critCost:5000,multiCost:1000,
-    need:1_000_000
-  };
-  S.trick={t:"clicker"};
+  if(r<.25)return letterTrick();
+  if(r<.5)return sliderTrick();
+  if(r<.75)return imageTrick();
+  clickerTrick();
 }
 
-function renderClicker(){
-  panel(`
-    <h3>Clicker Challenge</h3>
-    <div class="money">${fmt(C.pts)}</div>
-    <div class="progress"><div style="width:${Math.min(100,(C.pts/C.need)*100)}%"></div></div>
-    <p>PPC ${C.ppc} | Crit ${C.crit.toFixed(1)}% | x${C.multi.toFixed(1)}</p>
-    <button id="clickBtn">CLICK</button>
-    <hr>
-    <button onclick=upPPC()>+1 PPC (100)</button>
-    <button onclick=upCrit()>+1% Crit (${fmt(C.critCost)})</button>
-    <button onclick=upMulti()>+0.1 Multi (${fmt(C.multiCost)})</button>
-  `);
-  document.getElementById("clickBtn").addEventListener("click",doClick);
+/* ========= SIMPLE TRICKS ========= */
+function letterTrick(){
+  panel(`<h2>Select D</h2>${["A","B","C","D"].map(l=>`<button onclick="${l==="D"?"passTrick()":"failTrick()"}">${l}</button>`).join("")}`)
+}
+function sliderTrick(){
+  const t=Math.floor(Math.random()*10)+1;
+  panel(`<h2>Slide to ${t}</h2><input id=s type=range min=1 max=10>
+  <button onclick="document.getElementById('s').value==${t}?passTrick():failTrick()">Submit</button>`)
+}
+function imageTrick(){
+  panel(`<h2>What is this?</h2><p>🍅</p>
+  <button onclick=passTrick()>Tomato</button>
+  <button onclick=failTrick()>Apple</button>`)
 }
 
-function doClick(e){
-  let gain=C.ppc;
-  const crit=Math.random()*100<C.crit;
-  if(crit) gain=Math.floor(gain*C.multi);
-  C.pts+=gain;
-
-  spawnFloat(e.clientX,e.clientY,crit?`CRIT!!! +${fmt(gain)}`:`+${fmt(gain)}`,crit);
-  if(C.pts>=C.need) pass();
+/* ========= CLICKER ========= */
+let C={
+  pts:0,ppc:1,
+  crit:.001,critM:2,
+  ppcCost:100,critCost:5000,critMCost:1000
+};
+function clickerTrick(){
   renderClicker();
 }
-
-function spawnFloat(x,y,t,crit){
+function renderClicker(){
+  panel(`
+    <h2 class=center>${fmt(C.pts)} pts</h2>
+    <div class=progress><div style="width:${Math.min(100,C.pts/1e6*100)}%"></div></div>
+    <button class="big" onclick=click()>CLICK</button>
+    <p>PPC: ${C.ppc}</p>
+    <p>Crit: ${(C.crit*100).toFixed(2)}% | x${C.critM.toFixed(1)}</p>
+    <div class=shop>
+      <button onclick=buyPPC()>+1 PPC (${fmt(C.ppcCost)})</button>
+      <button onclick=buyCrit()>+Crit (${fmt(C.critCost)})</button>
+      <button onclick=buyCritM()>+Crit Multi (${fmt(C.critMCost)})</button>
+    </div>
+    ${C.pts>=1e6?'<button onclick=passTrick()>Continue</button>':''}
+  `)
+}
+function floatTxt(txt,crit){
   const d=document.createElement("div");
   d.className="float "+(crit?"crit":"normal");
-  d.style.left=x+"px"; d.style.top=y+"px";
-  d.textContent=t;
+  d.textContent=txt;
+  d.style.left=innerWidth/2+"px";
+  d.style.top=innerHeight/2+"px";
   document.body.appendChild(d);
-  setTimeout(()=>d.remove(),1100);
+  setTimeout(()=>d.remove(),1100)
 }
-
-function upPPC(){if(C.pts>=100){C.pts-=100;C.ppc++;renderClicker()}}
-function upCrit(){
-  if(C.pts>=C.critCost && C.crit<10){
-    C.pts-=C.critCost;
-    C.crit=Math.min(10,C.crit+1);
-    C.critCost*=1.2;
-    renderClicker();
+function click(){
+  let gain=C.ppc,crit=false;
+  if(Math.random()<C.crit){
+    gain*=C.critM;crit=true
   }
+  C.pts+=gain;
+  floatTxt((crit?"CRIT!!! +":"+")+fmt(gain),crit);
+  renderClicker();
 }
-function upMulti(){
-  if(C.pts>=C.multiCost && C.multi<5){
-    C.pts-=C.multiCost;
-    C.multi=Math.min(5,C.multi+.1);
-    C.multiCost*=1.4;
-    renderClicker();
-  }
-}
+function buyPPC(){if(C.pts>=C.ppcCost){C.pts-=C.ppcCost;C.ppc++;C.ppcCost*=1.1;renderClicker()}}
+function buyCrit(){if(C.pts>=C.critCost&&C.crit<.1){C.pts-=C.critCost;C.crit=Math.min(.1,C.crit+.01);C.critCost*=1.2;renderClicker()}}
+function buyCritM(){if(C.pts>=C.critMCost&&C.critM<5){C.pts-=C.critMCost;C.critM=Math.min(5,C.critM+.1);C.critMCost*=1.4;renderClicker()}}
 
-/* ===== START ===== */
-panel(`
-<h1>A Game of Surveys</h1>
-<button onclick=render()>Start</button>
-${localStorage.getItem("surveySave")?'<button onclick=render()>Resume</button>':""}
-`);
+/* ========= FLOW ========= */
+function passTrick(){S.inTrick=false;save();renderSurvey()}
+function failTrick(){localStorage.removeItem("surveySave");location.reload()}
+function finish(){panel(`<h1>🎉 Done!</h1><button onclick="localStorage.clear();location.reload()">Restart</button>`)}
+
+/* ========= START ========= */
+renderSurvey();
 </script>
 </body>
 </html>
