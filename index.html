@@ -35,6 +35,7 @@ textarea {
 .progress { height:10px; background:#22286b; border-radius:99px; overflow:hidden; }
 .progress div { height:100%; background:var(--accent); transition:.3s }
 .money { font-size:36px; color:var(--accent); text-align:center }
+.badge { padding:6px 12px; border-radius:99px; background:#22286b; font-size:13px }
 .float {
   position:absolute; color:white; pointer-events:none;
   animation:float 1s ease-out forwards;
@@ -43,6 +44,7 @@ textarea {
   from { transform:translateY(0); opacity:1 }
   to { transform:translateY(-40px); opacity:0 }
 }
+.top { display:flex; justify-content:space-between; margin-bottom:10px }
 </style>
 </head>
 <body>
@@ -69,32 +71,62 @@ for(let i=0;i<140;i++)p.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.rando
   requestAnimationFrame(anim);
 })();
 
-/* ===== STATE ===== */
-const ui=document.getElementById("ui");
+/* ===== QUESTIONS ===== */
 const QUESTIONS=[
 "What motivates you to succeed?",
-"How do you handle challenges?",
+"How do you handle failure?",
 "What does progress mean to you?",
-"How do you define success?",
-"What keeps you disciplined?"
+"What keeps you disciplined?",
+"How do you manage stress?",
+"What inspires you to learn?",
+"What does success look like?",
+"How do you stay focused?",
+"What is your biggest strength?",
+"What does teamwork mean to you?",
+"How do you handle pressure?",
+"What drives personal growth?",
+"What helps you stay organized?",
+"What does responsibility mean?",
+"What motivates long-term goals?",
+"What builds confidence?",
+"What makes work meaningful?",
+"What does balance mean to you?",
+"How do you adapt to change?",
+"What does leadership mean?"
 ];
-let S={
+
+/* ===== STATE + SAVE ===== */
+const ui=document.getElementById("ui");
+let S=JSON.parse(localStorage.getItem("surveySave")) || {
  q:0, trickChance:5, inTrick:false, trick:null
 };
 
-/* ===== RENDER ===== */
+function save(){ localStorage.setItem("surveySave",JSON.stringify(S)); }
+function reset(){ localStorage.removeItem("surveySave"); location.reload(); }
+
+/* ===== UI ===== */
 function panel(h){ui.innerHTML=`<div class="panel">${h}</div>`}
 
+/* ===== MAIN RENDER ===== */
 function render(){
- if(S.q>=QUESTIONS.length) return panel("<h1>Done 🎉</h1>");
+ if(S.q>=QUESTIONS.length){
+   panel("<h1>Survey Complete 🎉</h1><button onclick=reset()>Restart</button>");
+   return;
+ }
  if(S.inTrick) return renderTrick();
  panel(`
- <h3>Question ${S.q+1}/${QUESTIONS.length}</h3>
+ <div class="top">
+   <div class="badge">Question ${S.q+1}/20</div>
+   <div class="badge">Trick Chance: ${S.trickChance}%</div>
+ </div>
+ <div class="progress"><div style="width:${(S.q/20)*100}%"></div></div>
  <p>${QUESTIONS[S.q]}</p>
- <textarea id=a></textarea>
+ <textarea id=a placeholder="Type at least one word…"></textarea>
  <br><br>
  <button onclick=submit()>Continue</button>
+ <button onclick=reset()>Start Over</button>
  `);
+ save();
 }
 
 function submit(){
@@ -120,49 +152,31 @@ function spawnTrick(){
 
 function renderTrick(){
  const t=S.trick.t;
- if(t==="letter") return panel(`
- <h3>Select D</h3>
- ${["A","B","C","D"].map(l=>`<button onclick="l('${l}')">${l}</button>`).join("")}
- `);
- if(t==="image") return panel(`
- <h3>What is this?</h3>
- <img src="tomato.png" width=200><br><br>
- ${["Tomato","Corn","Egg","Avocado"].map(o=>`<button onclick="img('${o}')">${o}</button>`).join("")}
- `);
- if(t==="slider") return panel(`
- <h3>Slide to 7</h3>
- <input type=range min=1 max=10 id=s>
- <br><br><button onclick="sl()">Submit</button>
- `);
- if(t==="clicker") return renderClicker();
+ if(t==="letter") panel(`<h3>Select D</h3>${["A","B","C","D"].map(l=>`<button onclick="l('${l}')">${l}</button>`).join("")}`);
+ if(t==="image") panel(`<h3>What is this?</h3><img src="tomato.png" width=200><br>${["Tomato","Corn","Egg","Avocado"].map(o=>`<button onclick="img('${o}')">${o}</button>`).join("")}`);
+ if(t==="slider") panel(`<h3>Slide to 7</h3><input type=range min=1 max=10 id=s><br><button onclick="sl()">Submit</button>`);
+ if(t==="clicker") renderClicker();
 }
 
-function l(v){v==="D"?pass():fail()}
-function img(v){v==="Tomato"?pass():fail()}
-function sl(){document.getElementById("s").value==7?pass():fail()}
-function fail(){panel("<h1>Disqualified</h1>")}
-function pass(){S.inTrick=false;S.trickChance+=1;render()}
+function l(v){v==="D"?pass():reset()}
+function img(v){v==="Tomato"?pass():reset()}
+function sl(){document.getElementById("s").value==7?pass():reset()}
+function pass(){S.inTrick=false;S.trickChance+=1;render();save()}
 
-/* ===== CLICKER GAME ===== */
+/* ===== CLICKER ===== */
 let C;
 function initClicker(){
- C={
-  pts:0, ppc:1,
-  crit:0.1, multi:2,
-  need:1_000_000
- };
+ C={pts:0,ppc:1,crit:.1,multi:2,need:1_000_000};
  S.trick={t:"clicker"};
 }
 
 function renderClicker(){
  panel(`
  <h3>Clicker Challenge</h3>
- <div class=money id=pts>${C.pts}</div>
- <div class=progress><div id=bar></div></div>
- <p>PPC: ${C.ppc}</p>
- <p>Crit: ${C.crit.toFixed(1)}% | x${C.multi.toFixed(1)}</p>
- <button onclick=click(event)>CLICK</button>
- <hr>
+ <div class="money" id=pts>${C.pts}</div>
+ <div class="progress"><div id=bar></div></div>
+ <p>PPC ${C.ppc} | Crit ${C.crit.toFixed(1)}% | x${C.multi.toFixed(1)}</p>
+ <button onclick=click(event)>CLICK</button><hr>
  <button onclick=upPPC()>+1 PPC (100)</button>
  <button onclick=upCrit()>+1% Crit (50)</button>
  <button onclick=upMulti()>+0.1 Multi (1000)</button>
@@ -171,35 +185,36 @@ function renderClicker(){
 }
 
 function click(e){
- let gain=C.ppc;
+ let g=C.ppc;
  let crit=Math.random()*100<C.crit;
- if(crit) gain*=C.multi;
- C.pts+=Math.floor(gain);
- float(e.clientX,e.clientY,crit?`CRIT +${gain}`:`+${gain}`,crit);
+ if(crit) g*=C.multi;
+ C.pts+=Math.floor(g);
+ float(e.clientX,e.clientY,crit?`CRIT +${g}`:`+${g}`,crit);
  updateBar();
  if(C.pts>=C.need) pass();
 }
 
-function float(x,y,t,crit){
+function float(x,y,t,c){
  const d=document.createElement("div");
- d.className="float";
- d.style.left=x+"px"; d.style.top=y+"px";
- d.style.color=crit?"red":"white";
- d.innerText=t;
- document.body.appendChild(d);
- setTimeout(()=>d.remove(),1000);
+ d.className="float"; d.style.left=x+"px"; d.style.top=y+"px";
+ d.style.color=c?"red":"white"; d.innerText=t;
+ document.body.appendChild(d); setTimeout(()=>d.remove(),1000);
 }
 
 function updateBar(){
  document.getElementById("pts").innerText=C.pts;
  document.getElementById("bar").style.width=Math.min(100,(C.pts/C.need)*100)+"%";
 }
+function upPPC(){if(C.pts>=100){C.pts-=100;C.ppc++;renderClicker()}}
+function upCrit(){if(C.pts>=50){C.pts-=50;C.crit+=1;renderClicker()}}
+function upMulti(){if(C.pts>=1000){C.pts-=1000;C.multi+=.1;renderClicker()}}
 
-function upPPC(){ if(C.pts>=100){C.pts-=100;C.ppc++;renderClicker()} }
-function upCrit(){ if(C.pts>=50){C.pts-=50;C.crit+=1;renderClicker()} }
-function upMulti(){ if(C.pts>=1000){C.pts-=1000;C.multi+=0.1;renderClicker()} }
-
-render();
+/* ===== START ===== */
+panel(`
+<h1>A Game of Surveys</h1>
+<button onclick=render()>Start</button>
+${localStorage.getItem("surveySave")?'<button onclick=render()>Resume</button>':""}
+`);
 </script>
 </body>
 </html>
