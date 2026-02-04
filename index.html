@@ -6,8 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{
-  --bg:#0f1220;--card:#161a2e;--accent:#7cf3c0;
-  --danger:#ff6b6b;--text:#e9ecff
+  --bg:#0f1220;--accent:#7cf3c0;--text:#e9ecff
 }
 body{
   margin:0;background:var(--bg);color:var(--text);
@@ -31,23 +30,27 @@ textarea{
 }
 button{
   background:linear-gradient(#8af3c8,#57d6a1);
-  border:none;border-radius:12px;padding:12px 18px;
-  font-weight:800;cursor:pointer;margin:6px
+  border:none;border-radius:14px;
+  padding:14px 22px;font-weight:900;
+  cursor:pointer;margin:6px
 }
-.big{font-size:32px;padding:28px 64px}
-.money{font-size:36px;color:var(--accent);text-align:center}
-.float{
-  position:absolute;pointer-events:none;font-weight:900;
-  animation:floatUp 1.2s ease-out forwards;
-}
-.float.normal{font-size:38px;color:white}
-.float.crit{font-size:58px;color:#ff3b3b}
-@keyframes floatUp{
-  from{transform:translateY(0);opacity:1}
-  to{transform:translateY(-100px);opacity:0}
-}
+.big{font-size:34px;padding:30px 70px}
 .center{text-align:center}
 .shop{margin-top:12px;border-top:1px solid rgba(255,255,255,.15);padding-top:12px}
+
+.float{
+  position:fixed;
+  pointer-events:none;
+  font-weight:900;
+  animation:floatUp 1.2s ease-out forwards;
+}
+.float.normal{font-size:40px;color:white}
+.float.crit{font-size:60px;color:#ff3b3b}
+
+@keyframes floatUp{
+  from{transform:translateY(0);opacity:1}
+  to{transform:translateY(-110px);opacity:0}
+}
 </style>
 </head>
 
@@ -82,7 +85,8 @@ for(let i=0;i<140;i++)particles.push({
     if(p.x<0||p.x>W)p.vx*=-1;
     if(p.y<0||p.y>H)p.vy*=-1;
     ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-    ctx.fillStyle="rgba(124,243,192,.35)";ctx.fill();
+    ctx.fillStyle="rgba(124,243,192,.35)";
+    ctx.fill();
   });
   requestAnimationFrame(loop)
 })();
@@ -111,13 +115,10 @@ const QUESTIONS=[
   "What does progress look like?"
 ];
 
-/* ================= SAVE STATE ================= */
+/* ================= SAVE ================= */
 let S=(()=>{
-  const raw=JSON.parse(localStorage.getItem("save"));
-  return {
-    q: Number(raw?.q)||0,
-    trick: Number(raw?.trick)||5
-  }
+  const r=JSON.parse(localStorage.getItem("save"));
+  return { q:Number(r?.q)||0, trick:Number(r?.trick)||5 }
 })();
 function save(){localStorage.setItem("save",JSON.stringify(S))}
 function resetSurvey(){
@@ -136,7 +137,7 @@ function renderSurvey(){
     </div>
     <div class=progress><div style="width:${S.q/QUESTIONS.length*100}%"></div></div>
     <p>${QUESTIONS[S.q]}</p>
-    <textarea id=ans placeholder="Answer honestly…"></textarea>
+    <textarea id=ans></textarea>
     <button onclick=submitQ()>Continue</button>
   `)
 }
@@ -148,8 +149,11 @@ function submitQ(){
 
 /* ================= CLICKER ================= */
 let C={
-  pts:0,ppc:1,crit:.001,critM:2,
-  ppcCost:100,critCost:5000,critMCost:1000
+  pts:0,ppc:1,
+  crit:.001,critM:2,
+  ppcCost:100,
+  critCost:5000,
+  critMCost:1000
 };
 
 function startClicker(){renderClicker()}
@@ -158,44 +162,66 @@ function renderClicker(){
   panel(`
     <h2 class=center>${fmt(C.pts)} pts</h2>
     <div class=progress><div style="width:${Math.min(100,C.pts/1e6*100)}%"></div></div>
-    <div class=center><button id=clickBtn class="big">CLICK</button></div>
+    <div class=center>
+      <button id=clickBtn class="big">CLICK</button>
+    </div>
     <p class=center>PPC ${C.ppc}</p>
     <p class=center>Crit ${(C.crit*100).toFixed(2)}% | x${C.critM.toFixed(1)}</p>
-    <div class=shop center>
+    <div class="shop center">
       <button onclick=buyPPC()>+1 PPC (${fmt(C.ppcCost)})</button>
       <button onclick=buyCrit()>+Crit (${fmt(C.critCost)})</button>
       <button onclick=buyCritM()>+Crit Multi (${fmt(C.critMCost)})</button>
     </div>
     ${C.pts>=1e6?'<button onclick=renderSurvey()>Continue</button>':''}
   `);
-  document.getElementById("clickBtn").onclick=click;
+
+  document.getElementById("clickBtn").addEventListener("click",click);
 }
 
-function spawnFloat(text,isCrit,btn){
-  const r=btn.getBoundingClientRect();
+function spawnFloat(text,isCrit,x,y){
   const d=document.createElement("div");
   d.className="float "+(isCrit?"crit":"normal");
   d.textContent=text;
-  d.style.left=r.left+r.width/2+"px";
-  d.style.top=r.top+"px";
+  d.style.left=x+"px";
+  d.style.top=y+"px";
   document.body.appendChild(d);
   setTimeout(()=>d.remove(),1200)
 }
 
-function click(){
-  const btn=document.getElementById("clickBtn");
+function click(e){
   let gain=C.ppc,isCrit=false;
   if(Math.random()<C.crit){
-    gain*=C.critM;isCrit=true
+    gain*=C.critM;isCrit=true;
   }
   C.pts+=gain;
-  spawnFloat((isCrit?"CRIT!!! +":"+")+fmt(gain),isCrit,btn);
+  spawnFloat((isCrit?"CRIT!!! +":"+")+fmt(gain),isCrit,e.clientX,e.clientY);
   requestAnimationFrame(renderClicker);
 }
 
-function buyPPC(){if(C.pts>=C.ppcCost){C.pts-=C.ppcCost;C.ppc++;renderClicker()}}
-function buyCrit(){if(C.pts>=C.critCost&&C.crit<.1){C.pts-=C.critCost;C.crit+=.01;renderClicker()}}
-function buyCritM(){if(C.pts>=C.critMCost&&C.critM<5){C.pts-=C.critMCost;C.critM+=.1;renderClicker()}}
+/* ===== UPGRADES ===== */
+function buyPPC(){
+  if(C.pts>=C.ppcCost){
+    C.pts-=C.ppcCost;
+    C.ppc++;
+    renderClicker();
+  }
+}
+function buyCrit(){
+  if(C.pts>=C.critCost && C.crit<0.1){
+    C.pts-=C.critCost;
+    C.crit=Math.min(0.1,C.crit+0.01);
+    C.critCost*=1.2;   // +20%
+    renderClicker();
+  }
+}
+function buyCritM(){
+  if(C.pts>=C.critMCost && C.critM<5){
+    C.pts-=C.critMCost;
+    C.critM=Math.min(5,C.critM+0.1);
+    C.critMCost*=1.4; // +40%
+    renderClicker();
+  }
+}
 
 /* ================= END ================= */
 function finish(){
