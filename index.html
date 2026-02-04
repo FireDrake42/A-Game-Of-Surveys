@@ -6,7 +6,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 :root{
-  --bg:#0f1220;--card:#161a2e;--accent:#7cf3c0;--danger:#ff6b6b;--text:#e9ecff
+  --bg:#0f1220;--card:#161a2e;--accent:#7cf3c0;
+  --danger:#ff6b6b;--text:#e9ecff
 }
 body{
   margin:0;background:var(--bg);color:var(--text);
@@ -33,25 +34,20 @@ button{
   border:none;border-radius:12px;padding:12px 18px;
   font-weight:800;cursor:pointer;margin:6px
 }
-.big{font-size:30px;padding:26px 60px}
+.big{font-size:32px;padding:28px 64px}
 .money{font-size:36px;color:var(--accent);text-align:center}
-
 .float{
-  position:absolute;
-  pointer-events:none;
-  font-weight:900;
+  position:absolute;pointer-events:none;font-weight:900;
   animation:floatUp 1.2s ease-out forwards;
-  text-shadow:0 0 12px rgba(255,255,255,.5)
 }
 .float.normal{font-size:38px;color:white}
 .float.crit{font-size:58px;color:#ff3b3b}
-
 @keyframes floatUp{
-  from{transform:translateY(0) scale(1);opacity:1}
-  to{transform:translateY(-90px) scale(1.2);opacity:0}
+  from{transform:translateY(0);opacity:1}
+  to{transform:translateY(-100px);opacity:0}
 }
-.shop{margin-top:12px;border-top:1px solid rgba(255,255,255,.15);padding-top:12px}
 .center{text-align:center}
+.shop{margin-top:12px;border-top:1px solid rgba(255,255,255,.15);padding-top:12px}
 </style>
 </head>
 
@@ -91,21 +87,51 @@ for(let i=0;i<140;i++)particles.push({
   requestAnimationFrame(loop)
 })();
 
-/* ================= SURVEY ================= */
-const QUESTIONS=[...Array(20)].map((_,i)=>`Survey question ${i+1}`);
-let S=JSON.parse(localStorage.getItem("save"))||{q:0,trick:5};
+/* ================= QUESTIONS ================= */
+const QUESTIONS=[
+  "What does success mean to you?",
+  "What motivates you to work hard?",
+  "Describe a challenge you overcame.",
+  "How do you handle failure?",
+  "What skill do you want to improve?",
+  "What inspires you daily?",
+  "How do you stay focused on goals?",
+  "What is your biggest strength?",
+  "How do you manage stress?",
+  "What keeps you disciplined?",
+  "What does teamwork mean to you?",
+  "How do you learn new skills?",
+  "What drives personal growth?",
+  "What does responsibility mean?",
+  "How do you stay organized?",
+  "What makes work meaningful?",
+  "How do you handle setbacks?",
+  "What builds resilience?",
+  "What defines leadership to you?",
+  "What does progress look like?"
+];
+
+/* ================= SAVE STATE ================= */
+let S=(()=>{
+  const raw=JSON.parse(localStorage.getItem("save"));
+  return {
+    q: Number(raw?.q)||0,
+    trick: Number(raw?.trick)||5
+  }
+})();
 function save(){localStorage.setItem("save",JSON.stringify(S))}
 
+/* ================= SURVEY ================= */
 function renderSurvey(){
-  if(S.q>=20)return finish();
+  if(S.q>=QUESTIONS.length)return finish();
   panel(`
     <div class=top>
-      <div class=badge>Question ${S.q+1}/20</div>
-      <div class=badge>Trick ${S.trick}%</div>
+      <div class=badge>Question ${S.q+1}/${QUESTIONS.length}</div>
+      <div class=badge>Trick ${S.trick.toFixed(1)}%</div>
     </div>
-    <div class=progress><div style="width:${S.q/20*100}%"></div></div>
+    <div class=progress><div style="width:${S.q/QUESTIONS.length*100}%"></div></div>
     <p>${QUESTIONS[S.q]}</p>
-    <textarea id=ans></textarea>
+    <textarea id=ans placeholder="Answer honestly…"></textarea>
     <button onclick=submitQ()>Continue</button>
   `)
 }
@@ -117,8 +143,7 @@ function submitQ(){
 
 /* ================= CLICKER ================= */
 let C={
-  pts:0,ppc:1,
-  crit:.001,critM:2,
+  pts:0,ppc:1,crit:.001,critM:2,
   ppcCost:100,critCost:5000,critMCost:1000
 };
 
@@ -128,10 +153,8 @@ function renderClicker(){
   panel(`
     <h2 class=center>${fmt(C.pts)} pts</h2>
     <div class=progress><div style="width:${Math.min(100,C.pts/1e6*100)}%"></div></div>
-    <div class=center>
-      <button id=clickBtn class="big">CLICK</button>
-    </div>
-    <p class=center>PPC: ${C.ppc}</p>
+    <div class=center><button id=clickBtn class="big">CLICK</button></div>
+    <p class=center>PPC ${C.ppc}</p>
     <p class=center>Crit ${(C.crit*100).toFixed(2)}% | x${C.critM.toFixed(1)}</p>
     <div class=shop center>
       <button onclick=buyPPC()>+1 PPC (${fmt(C.ppcCost)})</button>
@@ -140,7 +163,6 @@ function renderClicker(){
     </div>
     ${C.pts>=1e6?'<button onclick=renderSurvey()>Continue</button>':''}
   `);
-
   document.getElementById("clickBtn").onclick=click;
 }
 
@@ -166,12 +188,12 @@ function click(){
   requestAnimationFrame(renderClicker);
 }
 
-function buyPPC(){if(C.pts>=C.ppcCost){C.pts-=C.ppcCost;C.ppc++;C.ppcCost*=1.1;renderClicker()}}
-function buyCrit(){if(C.pts>=C.critCost&&C.crit<.1){C.pts-=C.critCost;C.crit=Math.min(.1,C.crit+.01);C.critCost*=1.2;renderClicker()}}
-function buyCritM(){if(C.pts>=C.critMCost&&C.critM<5){C.pts-=C.critMCost;C.critM=Math.min(5,C.critM+.1);C.critMCost*=1.4;renderClicker()}}
+function buyPPC(){if(C.pts>=C.ppcCost){C.pts-=C.ppcCost;C.ppc++;renderClicker()}}
+function buyCrit(){if(C.pts>=C.critCost&&C.crit<.1){C.pts-=C.critCost;C.crit+=.01;renderClicker()}}
+function buyCritM(){if(C.pts>=C.critMCost&&C.critM<5){C.pts-=C.critMCost;C.critM+=.1;renderClicker()}}
 
 /* ================= END ================= */
-function finish(){panel(`<h1 class=center>🎉 Done!</h1>`)}
+function finish(){panel(`<h1 class=center>🎉 Survey Completed</h1>`)}
 renderSurvey();
 </script>
 </body>
