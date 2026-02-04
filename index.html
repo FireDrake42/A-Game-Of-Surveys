@@ -49,11 +49,14 @@ textarea{
 .top{display:flex; justify-content:space-between; margin-bottom:10px}
 .float{
   position:fixed; pointer-events:none;
-  animation:float 1s ease-out forwards;
+  font-weight:900;
+  animation:float 1.1s ease-out forwards;
 }
+.float.normal{font-size:28px; color:white}
+.float.crit{font-size:44px; color:#ff4b4b}
 @keyframes float{
-  from{transform:translateY(0); opacity:1}
-  to{transform:translateY(-40px); opacity:0}
+  from{transform:translateY(0) scale(1); opacity:1}
+  to{transform:translateY(-60px) scale(1.1); opacity:0}
 }
 </style>
 </head>
@@ -63,6 +66,14 @@ textarea{
 <div id="ui"></div>
 
 <script>
+/* ===== UTIL ===== */
+const fmt=n=>{
+  if(n>=1e9) return (n/1e9).toFixed(2)+"B";
+  if(n>=1e6) return (n/1e6).toFixed(2)+"M";
+  if(n>=1e3) return (n/1e3).toFixed(1)+"K";
+  return Math.floor(n);
+};
+
 /* ===== PARTICLES ===== */
 const canvas=document.getElementById("bg"),ctx=canvas.getContext("2d");
 let W,H,particles=[];
@@ -116,11 +127,10 @@ const QUESTIONS=[
 /* ===== STATE ===== */
 const ui=document.getElementById("ui");
 let S=JSON.parse(localStorage.getItem("surveySave"))||{
-  q:0, trickChance:5, inTrick:false, trick:null
+  q:0,trickChance:5,inTrick:false,trick:null
 };
 function save(){localStorage.setItem("surveySave",JSON.stringify(S))}
-function reset(){localStorage.removeItem("surveySave"); location.reload()}
-
+function reset(){localStorage.removeItem("surveySave");location.reload()}
 function panel(h){ui.innerHTML=`<div class="panel">${h}</div>`}
 
 /* ===== MAIN ===== */
@@ -152,9 +162,7 @@ function submit(){
   S.q++;
   if(Math.random()*100<S.trickChance){
     S.inTrick=true; spawnTrick();
-  }else{
-    S.trickChance+=1;
-  }
+  }else S.trickChance+=1;
   render();
 }
 
@@ -166,44 +174,42 @@ function spawnTrick(){
   else if(r<.6) S.trick={t:"slider"};
   else initClicker();
 }
-
 function renderTrick(){
   const t=S.trick.t;
-  if(t==="letter")
-    panel(`<h3>Please select D</h3>${["A","B","C","D"].map(l=>`<button onclick="l('${l}')">${l}</button>`).join("")}`);
-  if(t==="image")
-    panel(`<h3>What is this?</h3><img src="tomato.png" width=200><br>${["Tomato","Corn","Egg","Avocado"].map(o=>`<button onclick="img('${o}')">${o}</button>`).join("")}`);
-  if(t==="slider")
-    panel(`<h3>Slide to 7</h3><input type=range min=1 max=10 id=s><br><button onclick="sl()">Submit</button>`);
+  if(t==="letter") panel(`<h3>Select D</h3>${["A","B","C","D"].map(l=>`<button onclick="l('${l}')">${l}</button>`).join("")}`);
+  if(t==="image") panel(`<h3>What is this?</h3><img src="tomato.png" width=200><br>${["Tomato","Corn","Egg","Avocado"].map(o=>`<button onclick="img('${o}')">${o}</button>`).join("")}`);
+  if(t==="slider") panel(`<h3>Slide to 7</h3><input type=range min=1 max=10 id=s><br><button onclick="sl()">Submit</button>`);
   if(t==="clicker") renderClicker();
 }
-
 function l(v){v==="D"?pass():reset()}
 function img(v){v==="Tomato"?pass():reset()}
 function sl(){document.getElementById("s").value==7?pass():reset()}
-function pass(){S.inTrick=false; S.trickChance+=1; render(); save()}
+function pass(){S.inTrick=false;S.trickChance+=1;render();save()}
 
-/* ===== CLICKER GAME (FIXED) ===== */
+/* ===== CLICKER ===== */
 let C;
 function initClicker(){
-  C={pts:0,ppc:1,crit:.1,multi:2,need:1_000_000};
+  C={
+    pts:0,ppc:1,
+    crit:0.1,multi:2,
+    critCost:5000,multiCost:1000,
+    need:1_000_000
+  };
   S.trick={t:"clicker"};
 }
 
 function renderClicker(){
   panel(`
     <h3>Clicker Challenge</h3>
-    <div class="money" id="pts">${C.pts}</div>
-    <div class="progress"><div id="bar"></div></div>
+    <div class="money">${fmt(C.pts)}</div>
+    <div class="progress"><div style="width:${Math.min(100,(C.pts/C.need)*100)}%"></div></div>
     <p>PPC ${C.ppc} | Crit ${C.crit.toFixed(1)}% | x${C.multi.toFixed(1)}</p>
     <button id="clickBtn">CLICK</button>
     <hr>
     <button onclick=upPPC()>+1 PPC (100)</button>
-    <button onclick=upCrit()>+1% Crit (50)</button>
-    <button onclick=upMulti()>+0.1 Multi (1000)</button>
+    <button onclick=upCrit()>+1% Crit (${fmt(C.critCost)})</button>
+    <button onclick=upMulti()>+0.1 Multi (${fmt(C.multiCost)})</button>
   `);
-
-  updateBar();
   document.getElementById("clickBtn").addEventListener("click",doClick);
 }
 
@@ -213,32 +219,37 @@ function doClick(e){
   if(crit) gain=Math.floor(gain*C.multi);
   C.pts+=gain;
 
-  document.getElementById("pts").innerText=C.pts;
-  updateBar();
-
-  const r=e.target.getBoundingClientRect();
-  spawnFloat(r.left+r.width/2,r.top,crit?`CRIT!!! +${gain}`:`+${gain}`,crit);
-
+  spawnFloat(e.clientX,e.clientY,crit?`CRIT!!! +${fmt(gain)}`:`+${fmt(gain)}`,crit);
   if(C.pts>=C.need) pass();
+  renderClicker();
 }
 
 function spawnFloat(x,y,t,crit){
   const d=document.createElement("div");
-  d.className="float";
-  d.style.left=x+"px";
-  d.style.top=y+"px";
-  d.style.color=crit?"red":"white";
+  d.className="float "+(crit?"crit":"normal");
+  d.style.left=x+"px"; d.style.top=y+"px";
   d.textContent=t;
   document.body.appendChild(d);
-  setTimeout(()=>d.remove(),1000);
+  setTimeout(()=>d.remove(),1100);
 }
 
-function updateBar(){
-  document.getElementById("bar").style.width=Math.min(100,(C.pts/C.need)*100)+"%";
-}
 function upPPC(){if(C.pts>=100){C.pts-=100;C.ppc++;renderClicker()}}
-function upCrit(){if(C.pts>=50){C.pts-=50;C.crit+=1;renderClicker()}}
-function upMulti(){if(C.pts>=1000){C.pts-=1000;C.multi+=.1;renderClicker()}}
+function upCrit(){
+  if(C.pts>=C.critCost && C.crit<10){
+    C.pts-=C.critCost;
+    C.crit=Math.min(10,C.crit+1);
+    C.critCost*=1.2;
+    renderClicker();
+  }
+}
+function upMulti(){
+  if(C.pts>=C.multiCost && C.multi<5){
+    C.pts-=C.multiCost;
+    C.multi=Math.min(5,C.multi+.1);
+    C.multiCost*=1.4;
+    renderClicker();
+  }
+}
 
 /* ===== START ===== */
 panel(`
