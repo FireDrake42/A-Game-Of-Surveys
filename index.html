@@ -2,211 +2,204 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>A Game Of Surveys</title>
+<title>A Game of Surveys</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
-:root{
-  --bg:#0f1220;
-  --card:#161a2e;
-  --accent:#7cf3c0;
-  --danger:#ff6b6b;
-  --text:#e9ecff;
+:root {
+  --bg:#0f1220; --card:#161a2e; --accent:#7cf3c0;
+  --danger:#ff6b6b; --text:#e9ecff;
 }
-*{box-sizing:border-box}
-body{
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:system-ui,Arial;
+body {
+  margin:0; background:var(--bg); color:var(--text);
+  font-family:system-ui,Segoe UI,Arial;
   overflow:hidden;
 }
-canvas{position:fixed;inset:0;z-index:0}
-#app{position:relative;z-index:2;min-height:100vh;display:flex;align-items:center;justify-content:center}
-.card{
-  width:90%;max-width:760px;
-  background:rgba(22,26,46,.94);
-  padding:26px;border-radius:20px;
-  box-shadow:0 20px 60px rgba(0,0,0,.5)
+canvas { position:fixed; inset:0; z-index:-1; }
+#ui { position:fixed; inset:0; display:flex; justify-content:center; }
+.panel {
+  margin-top:40px; max-width:760px; width:95%;
+  background:rgba(255,255,255,.06);
+  backdrop-filter:blur(10px);
+  border-radius:20px; padding:24px;
 }
-.top{display:flex;justify-content:space-between;font-size:14px}
-.warn{color:var(--danger)}
-.progress{height:12px;background:#22286b;border-radius:999px;overflow:hidden;margin:12px 0}
-.progress div{height:100%;background:linear-gradient(90deg,var(--accent),#8fd3ff)}
-textarea{
-  width:100%;min-height:120px;
-  background:#0e1230;color:white;
-  border-radius:14px;border:1px solid rgba(255,255,255,.2);
-  padding:14px
+button {
+  background:linear-gradient(#8af3c8,#57d6a1);
+  border:none; border-radius:12px;
+  padding:10px 16px; font-weight:700; cursor:pointer;
 }
-button{
-  background:linear-gradient(180deg,#8af3c8,#57d6a1);
-  border:none;padding:12px 18px;
-  border-radius:14px;font-weight:700;cursor:pointer
+textarea {
+  width:100%; min-height:100px;
+  background:#0e1230; color:var(--text);
+  border-radius:12px; padding:12px;
 }
-button:disabled{opacity:.4}
-.center{text-align:center}
-.row{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+.progress { height:10px; background:#22286b; border-radius:99px; overflow:hidden; }
+.progress div { height:100%; background:var(--accent); transition:.3s }
+.money { font-size:36px; color:var(--accent); text-align:center }
+.float {
+  position:absolute; color:white; pointer-events:none;
+  animation:float 1s ease-out forwards;
+}
+@keyframes float {
+  from { transform:translateY(0); opacity:1 }
+  to { transform:translateY(-40px); opacity:0 }
+}
 </style>
 </head>
-
 <body>
+
 <canvas id="bg"></canvas>
-<div id="app"></div>
+<div id="ui"></div>
 
 <script>
-/* ========== PARTICLES ========== */
+/* ===== PARTICLES ===== */
 const c=document.getElementById("bg"),x=c.getContext("2d");
 let W,H,p=[];
-function r(){W=c.width=innerWidth;H=c.height=innerHeight}
-addEventListener("resize",r);r();
-for(let i=0;i<120;i++)p.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.4,vy:(Math.random()-.5)*.4,r:Math.random()*2});
-(function a(){
+function rs(){W=c.width=innerWidth;H=c.height=innerHeight}
+addEventListener("resize",rs); rs();
+for(let i=0;i<140;i++)p.push({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*2});
+(function anim(){
   x.clearRect(0,0,W,H);
-  for(const o of p){
+  p.forEach(o=>{
     o.x+=o.vx;o.y+=o.vy;
     if(o.x<0||o.x>W)o.vx*=-1;
     if(o.y<0||o.y>H)o.vy*=-1;
     x.beginPath();x.arc(o.x,o.y,o.r,0,Math.PI*2);
-    x.fillStyle="rgba(124,243,192,.35)";x.fill()
-  }
-  requestAnimationFrame(a)
+    x.fillStyle="rgba(124,243,192,.4)";x.fill();
+  });
+  requestAnimationFrame(anim);
 })();
 
-/* ========== QUESTIONS ========== */
+/* ===== STATE ===== */
+const ui=document.getElementById("ui");
 const QUESTIONS=[
-"What does success mean to you?",
-"What motivates you to stay focused?",
-"How do you handle stress?",
-"What skill are you improving?",
-"What makes work meaningful?",
-"What inspires creativity?",
-"What defines progress?",
-"What keeps you motivated?",
-"What builds confidence?",
-"What does leadership mean?",
-"What helps teamwork succeed?",
-"What drives improvement?",
-"What inspires learning?",
-"What keeps you disciplined?",
-"What defines balance?",
-"What motivates long-term goals?",
-"What helps overcome setbacks?",
-"What makes goals worthwhile?",
-"What encourages growth?",
-"What does responsibility mean?"
+"What motivates you to succeed?",
+"How do you handle challenges?",
+"What does progress mean to you?",
+"How do you define success?",
+"What keeps you disciplined?"
 ];
+let S={
+ q:0, trickChance:5, inTrick:false, trick:null
+};
 
-const app=document.getElementById("app");
+/* ===== RENDER ===== */
+function panel(h){ui.innerHTML=`<div class="panel">${h}</div>`}
 
-/* ========== STATE (WITH AUTO-REPAIR) ========== */
-let state;
-try{
-  state=JSON.parse(localStorage.getItem("save"))||{};
-}catch{state={}}
-
-state.q ??= 0;
-state.trickChance ??= 5;
-state.inTrick = !!state.trick;
-state.trick ??= null;
-
-function save(){localStorage.setItem("save",JSON.stringify(state))}
-
-/* ========== SURVEY ========== */
-function renderSurvey(){
-  save();
-
-  if(state.trick && state.inTrick){
-    renderTrick();
-    return;
-  }
-
-  if(state.q>=QUESTIONS.length){
-    app.innerHTML=`<div class="card center">
-      <h2>Survey Complete 🎉</h2>
-      <button onclick="reset()">Start Over</button>
-    </div>`;
-    return;
-  }
-
-  const pct=Math.round((state.q/QUESTIONS.length)*100);
-  app.innerHTML=`
-  <div class="card">
-    <div class="top">
-      <div>${state.q+1}/${QUESTIONS.length}</div>
-      <div class="${state.trickChance>=50?'warn':''}">
-        Trick Chance: ${state.trickChance}%
-      </div>
-    </div>
-    <div class="progress"><div style="width:${pct}%"></div></div>
-    <p>${QUESTIONS[state.q]}</p>
-    <textarea id="ans"></textarea>
-    <div class="row">
-      <button id="next" disabled>Continue</button>
-    </div>
-  </div>`;
-
-  const ans=document.getElementById("ans");
-  const next=document.getElementById("next");
-  ans.oninput=()=>next.disabled=!ans.value.trim();
-  next.onclick=()=>{
-    state.q++;
-    state.trickChance=Math.min(100,state.trickChance+1);
-    if(Math.random()*100<state.trickChance) spawnTrick();
-    renderSurvey();
-  };
+function render(){
+ if(S.q>=QUESTIONS.length) return panel("<h1>Done 🎉</h1>");
+ if(S.inTrick) return renderTrick();
+ panel(`
+ <h3>Question ${S.q+1}/${QUESTIONS.length}</h3>
+ <p>${QUESTIONS[S.q]}</p>
+ <textarea id=a></textarea>
+ <br><br>
+ <button onclick=submit()>Continue</button>
+ `);
 }
 
-/* ========== TRICKS ========== */
+function submit(){
+ const v=document.getElementById("a").value.trim();
+ if(!v) return;
+ S.q++;
+ if(Math.random()*100<S.trickChance){
+   S.inTrick=true; spawnTrick();
+ } else {
+   S.trickChance+=1;
+ }
+ render();
+}
+
+/* ===== TRICKS ===== */
 function spawnTrick(){
-  state.inTrick=true;
-  const r=Math.random();
-  if(r<.25) state.trick={type:"letter"};
-  else if(r<.5) state.trick={type:"image"};
-  else if(r<.75) state.trick={type:"slider",target:1+Math.floor(Math.random()*10)};
-  else state.trick={type:"clicker"};
+ const r=Math.random();
+ if(r<.2) S.trick={t:"letter"};
+ else if(r<.4) S.trick={t:"image"};
+ else if(r<.6) S.trick={t:"slider"};
+ else initClicker();
 }
 
 function renderTrick(){
-  const t=state.trick;
-  if(!t){state.inTrick=false;renderSurvey();return;}
-
-  if(t.type==="letter")
-    app.innerHTML=`<div class="card center">
-      <h3>Select D</h3>
-      ${["A","B","C","D"].map(l=>`<button onclick="lPick('${l}')">${l}</button>`).join("")}
-    </div>`;
-
-  if(t.type==="image")
-    app.innerHTML=`<div class="card center">
-      <p>Which is a tomato?</p>
-      <div class="row">
-        ${["Corn","Tomato","Egg","Avocado"].map(o=>`<button onclick="iPick('${o}')">${o}</button>`).join("")}
-      </div>
-    </div>`;
-
-  if(t.type==="slider")
-    app.innerHTML=`<div class="card center">
-      <h3>Slide to ${t.target}</h3>
-      <input type="range" id="s" min="1" max="10">
-      <button onclick="sPick()">Submit</button>
-    </div>`;
-
-  if(t.type==="clicker")
-    app.innerHTML=`<div class="card center">
-      <h3>Click to Continue</h3>
-      <button onclick="passTrick()">Click Me</button>
-    </div>`;
+ const t=S.trick.t;
+ if(t==="letter") return panel(`
+ <h3>Select D</h3>
+ ${["A","B","C","D"].map(l=>`<button onclick="l('${l}')">${l}</button>`).join("")}
+ `);
+ if(t==="image") return panel(`
+ <h3>What is this?</h3>
+ <img src="tomato.png" width=200><br><br>
+ ${["Tomato","Corn","Egg","Avocado"].map(o=>`<button onclick="img('${o}')">${o}</button>`).join("")}
+ `);
+ if(t==="slider") return panel(`
+ <h3>Slide to 7</h3>
+ <input type=range min=1 max=10 id=s>
+ <br><br><button onclick="sl()">Submit</button>
+ `);
+ if(t==="clicker") return renderClicker();
 }
 
-function lPick(l){l==="D"?passTrick():reset()}
-function iPick(o){o==="Tomato"?passTrick():reset()}
-function sPick(){document.getElementById("s").value==state.trick.target?passTrick():reset()}
-function passTrick(){state.trick=null;state.inTrick=false;renderSurvey()}
-function reset(){localStorage.removeItem("save");location.reload()}
+function l(v){v==="D"?pass():fail()}
+function img(v){v==="Tomato"?pass():fail()}
+function sl(){document.getElementById("s").value==7?pass():fail()}
+function fail(){panel("<h1>Disqualified</h1>")}
+function pass(){S.inTrick=false;S.trickChance+=1;render()}
 
-/* ========== START ========== */
-renderSurvey();
+/* ===== CLICKER GAME ===== */
+let C;
+function initClicker(){
+ C={
+  pts:0, ppc:1,
+  crit:0.1, multi:2,
+  need:1_000_000
+ };
+ S.trick={t:"clicker"};
+}
+
+function renderClicker(){
+ panel(`
+ <h3>Clicker Challenge</h3>
+ <div class=money id=pts>${C.pts}</div>
+ <div class=progress><div id=bar></div></div>
+ <p>PPC: ${C.ppc}</p>
+ <p>Crit: ${C.crit.toFixed(1)}% | x${C.multi.toFixed(1)}</p>
+ <button onclick=click(event)>CLICK</button>
+ <hr>
+ <button onclick=upPPC()>+1 PPC (100)</button>
+ <button onclick=upCrit()>+1% Crit (50)</button>
+ <button onclick=upMulti()>+0.1 Multi (1000)</button>
+ `);
+ updateBar();
+}
+
+function click(e){
+ let gain=C.ppc;
+ let crit=Math.random()*100<C.crit;
+ if(crit) gain*=C.multi;
+ C.pts+=Math.floor(gain);
+ float(e.clientX,e.clientY,crit?`CRIT +${gain}`:`+${gain}`,crit);
+ updateBar();
+ if(C.pts>=C.need) pass();
+}
+
+function float(x,y,t,crit){
+ const d=document.createElement("div");
+ d.className="float";
+ d.style.left=x+"px"; d.style.top=y+"px";
+ d.style.color=crit?"red":"white";
+ d.innerText=t;
+ document.body.appendChild(d);
+ setTimeout(()=>d.remove(),1000);
+}
+
+function updateBar(){
+ document.getElementById("pts").innerText=C.pts;
+ document.getElementById("bar").style.width=Math.min(100,(C.pts/C.need)*100)+"%";
+}
+
+function upPPC(){ if(C.pts>=100){C.pts-=100;C.ppc++;renderClicker()} }
+function upCrit(){ if(C.pts>=50){C.pts-=50;C.crit+=1;renderClicker()} }
+function upMulti(){ if(C.pts>=1000){C.pts-=1000;C.multi+=0.1;renderClicker()} }
+
+render();
 </script>
 </body>
 </html>
