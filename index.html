@@ -29,19 +29,21 @@ button{
   cursor:pointer;
 }
 .row{display:flex;gap:12px;flex-wrap:wrap}
-.progress{height:10px;background:#22286b;border-radius:999px;overflow:hidden}
+.progress{height:10px;background:#22286b;border-radius:999px;overflow:hidden;margin:12px 0}
 .progress>div{height:100%;background:#7cf3c0}
-.badge{font-size:14px}
+.badge{font-size:14px;margin-bottom:6px}
 .coin{position:fixed;top:12px;left:12px;font-weight:700}
 .float{
   position:absolute;
-  font-size:28px;
+  font-size:34px;
+  font-weight:900;
   pointer-events:none;
   animation:float 1s ease-out forwards;
 }
+.float.crit{color:#ff6b6b}
 @keyframes float{
   from{opacity:1;transform:translateY(0)}
-  to{opacity:0;transform:translateY(-40px)}
+  to{opacity:0;transform:translateY(-50px)}
 }
 </style>
 </head>
@@ -51,7 +53,7 @@ button{
 <div id="ui"></div>
 
 <script>
-/* ===================== STATE ===================== */
+/* ===================== SAVE / STATE ===================== */
 const state = JSON.parse(localStorage.getItem("survey_state")) || {
   q:0,
   coins:0,
@@ -67,16 +69,32 @@ function resetSurvey(){
   render();
 }
 
-/* ===================== AUDIO (EMBEDDED) ===================== */
-const audioData = {
-  birds: "data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAA==", // placeholder tiny sound
-  wolf: "data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAA==",
-  traffic: "data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAA=="
-};
-let heardSound=null;
+/* ===================== AUDIO (REAL SOUND) ===================== */
+function playSound(type, onEnd){
+  const ctx = new (window.AudioContext||window.webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  if(type==="Birds"){ osc.type="sine"; osc.frequency.value=1200; }
+  if(type==="Wolf"){ osc.type="sawtooth"; osc.frequency.value=220; }
+  if(type==="Traffic"){ osc.type="square"; osc.frequency.value=90; }
+
+  gain.gain.value=0.001;
+  gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime+0.1);
+
+  osc.start();
+  osc.stop(ctx.currentTime+14);
+
+  osc.onended=()=>{
+    ctx.close();
+    onEnd && onEnd();
+  };
+}
 
 /* ===================== QUESTIONS ===================== */
-const questions = [
+const questions=[
   {type:"intro",text:"The first questions collect personal information."},
   {type:"sound"},
   {type:"choice",text:"What did you hear?",opts:["Birds","Wolf","Traffic"],check:true},
@@ -89,8 +107,10 @@ while(questions.length<20){
   questions.push({type:"text",text:"Describe a goal you want to achieve."});
 }
 
-/* ===================== RENDER ===================== */
+let heardSound=null;
 const ui=document.getElementById("ui");
+
+/* ===================== RENDER ===================== */
 function render(){
   document.getElementById("coinUI").innerText="🪙 "+state.coins;
 
@@ -101,26 +121,30 @@ function render(){
   let html=`
     <div class="badge">Question ${state.q+1}/20</div>
     <div class="badge">Trick Chance: ${state.trickChance}%</div>
-    <div class="progress"><div style="width:${state.q/20*100}%"></div></div>
+    <div class="progress"><div style="width:${(state.q/20)*100}%"></div></div>
     <p>${q.text||""}</p>
   `;
 
   if(q.type==="intro"){
     html+=`<button onclick="next()">Continue</button>`;
+    ui.innerHTML=html; return;
   }
 
   if(q.type==="sound"){
-    const keys=Object.keys(audioData);
-    heardSound=keys[Math.floor(Math.random()*keys.length)];
+    const sounds=["Birds","Wolf","Traffic"];
+    heardSound=sounds[Math.floor(Math.random()*sounds.length)];
     html+=`
-      <button id="playBtn">Play Audio</button>
+      <button id="playBtn">▶ Play Sound</button>
       <button id="contBtn" disabled>Continue</button>
     `;
     ui.innerHTML=html;
-    const a=new Audio(audioData[heardSound]);
-    document.getElementById("playBtn").onclick=()=>a.play();
-    a.onended=()=>document.getElementById("contBtn").disabled=false;
-    document.getElementById("contBtn").onclick=next;
+    let played=false;
+    playBtn.onclick=()=>{
+      if(played) return;
+      played=true;
+      playSound(heardSound,()=>contBtn.disabled=false);
+    };
+    contBtn.onclick=next;
     return;
   }
 
@@ -155,7 +179,7 @@ function next(){
 }
 function pick(v){
   const q=questions[state.q];
-  if(q.check && v!==heardSound.charAt(0).toUpperCase()+heardSound.slice(1)) return disqualify();
+  if(q.check && v!==heardSound) return disqualify();
   next();
 }
 function submitText(){
@@ -174,7 +198,6 @@ function maybeTrick(){
 }
 let trick=null;
 
-/* ===================== CLICKER ===================== */
 function spawnTrick(){
   const r=Math.random();
   if(r<0.25) trick={type:"letter"};
@@ -182,28 +205,27 @@ function spawnTrick(){
   else if(r<0.75) trick={type:"slider"};
   else trick={type:"clicker",score:0,ppc:1,target:Math.floor(Math.random()*900)+100};
 }
+
+/* ===================== TRICK RENDER ===================== */
 function renderTrick(){
   if(trick.type==="clicker"){
     ui.innerHTML=`
       <h2>Verification</h2>
       <p>${trick.score}/${trick.target}</p>
       <button id="clickBtn">CLICK</button>
-      <div class="progress"><div style="width:${trick.score/trick.target*100}%"></div></div>
+      <div class="progress"><div style="width:${(trick.score/trick.target)*100}%"></div></div>
     `;
-    document.getElementById("clickBtn").onclick=(e)=>{
+    clickBtn.onclick=(e)=>{
       trick.score+=trick.ppc;
-      floatText("+"+trick.ppc,e.clientX,e.clientY);
-      if(trick.score>=trick.target){
-        state.inTrick=false;
-        save();
-        render();
-      }else renderTrick();
+      floatText("+"+trick.ppc,e.clientX,e.clientY,false);
+      if(trick.score>=trick.target){ state.inTrick=false; save(); render(); }
+      else renderTrick();
     };
     return;
   }
 
   if(trick.type==="letter"){
-    ui.innerHTML=`<p>Select D</p><div class="row">${["A","B","C","D"].map(l=>`<button onclick="${l==="D"?"pass()":"disqualify()"}">${l}</button>`).join("")}</div>`;
+    ui.innerHTML=`<p>Select <b>D</b></p><div class="row">${["A","B","C","D"].map(l=>`<button onclick="${l==="D"?"pass()":"disqualify()"}">${l}</button>`).join("")}</div>`;
   }
   if(trick.type==="image"){
     ui.innerHTML=`<p>What is this?</p><img src="tomato.png" width="120"><div class="row"><button onclick="pass()">Tomato</button><button onclick="disqualify()">Corn</button></div>`;
@@ -211,26 +233,23 @@ function renderTrick(){
   if(trick.type==="slider"){
     const t=Math.floor(Math.random()*10)+1;
     trick.correct=t;
-    ui.innerHTML=`<p>Slide to ${t}</p><input type="range" min="1" max="10" id="ts"><button onclick="checkSlider()">Submit</button>`;
+    ui.innerHTML=`<p>Slide to ${t}</p><input type="range" min="1" max="10" id="ts"><div id="tv">5</div><button onclick="checkSlider()">Submit</button>`;
+    ts.oninput=()=>tv.innerText=ts.value;
   }
 }
 function checkSlider(){
-  if(document.getElementById("ts").value==trick.correct) pass();
+  if(ts.value==trick.correct) pass();
   else disqualify();
 }
-function pass(){
-  state.inTrick=false;
-  save();
-  render();
-}
+function pass(){ state.inTrick=false; save(); render(); }
 function disqualify(){
   ui.innerHTML=`<h1>Disqualified</h1><button onclick="resetSurvey()">Restart</button>`;
 }
 
 /* ===================== FLOAT TEXT ===================== */
-function floatText(txt,x,y){
+function floatText(txt,x,y,crit){
   const d=document.createElement("div");
-  d.className="float";
+  d.className="float"+(crit?" crit":"");
   d.innerText=txt;
   d.style.left=x+"px";
   d.style.top=y+"px";
