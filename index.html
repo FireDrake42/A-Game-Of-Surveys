@@ -2,238 +2,252 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>A Game of Surveys</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Survey Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <style>
-:root{
-  --bg:#0f1220;--accent:#7cf3c0;--text:#e9ecff
-}
 body{
-  margin:0;background:var(--bg);color:var(--text);
-  font-family:system-ui,Segoe UI,Arial;overflow:hidden
+  margin:0;
+  font-family:system-ui,Segoe UI,Roboto,Arial;
+  background:#0f1220;
+  color:#e9ecff;
 }
-canvas{position:fixed;inset:0;z-index:-1}
-#ui{position:fixed;inset:0;display:flex;justify-content:center}
-.panel{
-  margin-top:40px;width:95%;max-width:760px;
-  background:rgba(255,255,255,.06);
-  backdrop-filter:blur(10px);
-  border-radius:20px;padding:24px
-}
-.top{display:flex;justify-content:space-between}
-.badge{background:#22286b;padding:6px 12px;border-radius:99px;font-size:13px}
-.progress{height:10px;background:#22286b;border-radius:99px;overflow:hidden;margin:10px 0}
-.progress div{height:100%;background:var(--accent);transition:.2s}
-textarea{
-  width:100%;min-height:110px;background:#0e1230;color:var(--text);
-  border-radius:12px;padding:12px
+#ui{
+  max-width:760px;
+  margin:40px auto;
+  background:#161a2e;
+  padding:24px;
+  border-radius:16px;
+  box-shadow:0 20px 50px rgba(0,0,0,.4);
 }
 button{
-  background:linear-gradient(#8af3c8,#57d6a1);
-  border:none;border-radius:14px;
-  padding:14px 22px;font-weight:900;
-  cursor:pointer;margin:6px
+  padding:12px 18px;
+  border:none;
+  border-radius:12px;
+  font-weight:700;
+  background:#7cf3c0;
+  cursor:pointer;
 }
-.big{font-size:34px;padding:30px 70px}
-.center{text-align:center}
-.shop{margin-top:12px;border-top:1px solid rgba(255,255,255,.15);padding-top:12px}
-
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.progress{height:10px;background:#22286b;border-radius:999px;overflow:hidden}
+.progress>div{height:100%;background:#7cf3c0}
+.badge{font-size:14px}
+.coin{position:fixed;top:12px;left:12px;font-weight:700}
 .float{
-  position:fixed;
+  position:absolute;
+  font-size:28px;
   pointer-events:none;
-  font-weight:900;
-  animation:floatUp 1.2s ease-out forwards;
+  animation:float 1s ease-out forwards;
 }
-.float.normal{font-size:40px;color:white}
-.float.crit{font-size:60px;color:#ff3b3b}
-
-@keyframes floatUp{
-  from{transform:translateY(0);opacity:1}
-  to{transform:translateY(-110px);opacity:0}
+@keyframes float{
+  from{opacity:1;transform:translateY(0)}
+  to{opacity:0;transform:translateY(-40px)}
 }
 </style>
 </head>
 
 <body>
-<canvas id="bg"></canvas>
+<div class="coin" id="coinUI">🪙 0</div>
 <div id="ui"></div>
 
 <script>
-/* ================= HELPERS ================= */
-const fmt=n=>{
-  if(n>=1e9)return(n/1e9).toFixed(2)+"B";
-  if(n>=1e6)return(n/1e6).toFixed(2)+"M";
-  if(n>=1e3)return(n/1e3).toFixed(1)+"K";
-  return Math.floor(n)
+/* ===================== STATE ===================== */
+const state = JSON.parse(localStorage.getItem("survey_state")) || {
+  q:0,
+  coins:0,
+  trickChance:5,
+  inTrick:false
 };
-const ui=document.getElementById("ui");
-const panel=h=>ui.innerHTML=`<div class=panel>${h}</div>`;
-
-/* ================= PARTICLES ================= */
-const c=document.getElementById("bg"),ctx=c.getContext("2d");
-let W,H,particles=[];
-function resize(){W=c.width=innerWidth;H=c.height=innerHeight}
-addEventListener("resize",resize);resize();
-for(let i=0;i<140;i++)particles.push({
-  x:Math.random()*W,y:Math.random()*H,
-  vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:Math.random()*2+.5
-});
-(function loop(){
-  ctx.clearRect(0,0,W,H);
-  particles.forEach(p=>{
-    p.x+=p.vx;p.y+=p.vy;
-    if(p.x<0||p.x>W)p.vx*=-1;
-    if(p.y<0||p.y>H)p.vy*=-1;
-    ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-    ctx.fillStyle="rgba(124,243,192,.35)";
-    ctx.fill();
-  });
-  requestAnimationFrame(loop)
-})();
-
-/* ================= QUESTIONS ================= */
-const QUESTIONS=[
-  "What does success mean to you?",
-  "What motivates you to work hard?",
-  "Describe a challenge you overcame.",
-  "How do you handle failure?",
-  "What skill do you want to improve?",
-  "What inspires you daily?",
-  "How do you stay focused on goals?",
-  "What is your biggest strength?",
-  "How do you manage stress?",
-  "What keeps you disciplined?",
-  "What does teamwork mean to you?",
-  "How do you learn new skills?",
-  "What drives personal growth?",
-  "What does responsibility mean?",
-  "How do you stay organized?",
-  "What makes work meaningful?",
-  "How do you handle setbacks?",
-  "What builds resilience?",
-  "What defines leadership to you?",
-  "What does progress look like?"
-];
-
-/* ================= SAVE ================= */
-let S=(()=>{
-  const r=JSON.parse(localStorage.getItem("save"));
-  return { q:Number(r?.q)||0, trick:Number(r?.trick)||5 }
-})();
-function save(){localStorage.setItem("save",JSON.stringify(S))}
+function save(){ localStorage.setItem("survey_state",JSON.stringify(state)); }
 function resetSurvey(){
-  localStorage.removeItem("save");
-  S={q:0,trick:5};
-  renderSurvey();
+  state.q=0;
+  state.trickChance=5;
+  state.inTrick=false;
+  save();
+  render();
 }
 
-/* ================= SURVEY ================= */
-function renderSurvey(){
-  if(S.q>=QUESTIONS.length)return finish();
-  panel(`
-    <div class=top>
-      <div class=badge>Question ${S.q+1}/${QUESTIONS.length}</div>
-      <div class=badge>Trick ${S.trick.toFixed(1)}%</div>
-    </div>
-    <div class=progress><div style="width:${S.q/QUESTIONS.length*100}%"></div></div>
-    <p>${QUESTIONS[S.q]}</p>
-    <textarea id=ans></textarea>
-    <button onclick=submitQ()>Continue</button>
-  `)
-}
-function submitQ(){
-  if(!document.getElementById("ans").value.trim())return;
-  S.q++;S.trick=Math.min(100,S.trick+1);save();
-  Math.random()*100<S.trick?startClicker():renderSurvey()
-}
-
-/* ================= CLICKER ================= */
-let C={
-  pts:0,ppc:1,
-  crit:.001,critM:2,
-  ppcCost:100,
-  critCost:5000,
-  critMCost:1000
+/* ===================== AUDIO (EMBEDDED) ===================== */
+const audioData = {
+  birds: "data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAA==", // placeholder tiny sound
+  wolf: "data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAA==",
+  traffic: "data:audio/mp3;base64,//uQxAAAAAAAAAAAAAAAAAAAAAA=="
 };
+let heardSound=null;
 
-function startClicker(){renderClicker()}
-
-function renderClicker(){
-  panel(`
-    <h2 class=center>${fmt(C.pts)} pts</h2>
-    <div class=progress><div style="width:${Math.min(100,C.pts/1e6*100)}%"></div></div>
-    <div class=center>
-      <button id=clickBtn class="big">CLICK</button>
-    </div>
-    <p class=center>PPC ${C.ppc}</p>
-    <p class=center>Crit ${(C.crit*100).toFixed(2)}% | x${C.critM.toFixed(1)}</p>
-    <div class="shop center">
-      <button onclick=buyPPC()>+1 PPC (${fmt(C.ppcCost)})</button>
-      <button onclick=buyCrit()>+Crit (${fmt(C.critCost)})</button>
-      <button onclick=buyCritM()>+Crit Multi (${fmt(C.critMCost)})</button>
-    </div>
-    ${C.pts>=1e6?'<button onclick=renderSurvey()>Continue</button>':''}
-  `);
-
-  document.getElementById("clickBtn").addEventListener("click",click);
+/* ===================== QUESTIONS ===================== */
+const questions = [
+  {type:"intro",text:"The first questions collect personal information."},
+  {type:"sound"},
+  {type:"choice",text:"What did you hear?",opts:["Birds","Wolf","Traffic"],check:true},
+  {type:"choice",text:"What is your gender?",opts:["Man","Woman"]},
+  {type:"choice",text:"What is your age?",opts:["-18","20-30","30-40","40-50","50-60","60-70","+70"]},
+  {type:"text",text:"What does success mean to you?"},
+  {type:"slider",text:"How motivated are you?",min:1,max:10}
+];
+while(questions.length<20){
+  questions.push({type:"text",text:"Describe a goal you want to achieve."});
 }
 
-function spawnFloat(text,isCrit,x,y){
+/* ===================== RENDER ===================== */
+const ui=document.getElementById("ui");
+function render(){
+  document.getElementById("coinUI").innerText="🪙 "+state.coins;
+
+  if(state.inTrick) return renderTrick();
+  if(state.q>=20) return finish();
+
+  const q=questions[state.q];
+  let html=`
+    <div class="badge">Question ${state.q+1}/20</div>
+    <div class="badge">Trick Chance: ${state.trickChance}%</div>
+    <div class="progress"><div style="width:${state.q/20*100}%"></div></div>
+    <p>${q.text||""}</p>
+  `;
+
+  if(q.type==="intro"){
+    html+=`<button onclick="next()">Continue</button>`;
+  }
+
+  if(q.type==="sound"){
+    const keys=Object.keys(audioData);
+    heardSound=keys[Math.floor(Math.random()*keys.length)];
+    html+=`
+      <button id="playBtn">Play Audio</button>
+      <button id="contBtn" disabled>Continue</button>
+    `;
+    ui.innerHTML=html;
+    const a=new Audio(audioData[heardSound]);
+    document.getElementById("playBtn").onclick=()=>a.play();
+    a.onended=()=>document.getElementById("contBtn").disabled=false;
+    document.getElementById("contBtn").onclick=next;
+    return;
+  }
+
+  if(q.type==="choice"){
+    html+=`<div class="row">${q.opts.map(o=>`<button onclick="pick('${o}')">${o}</button>`).join("")}</div>`;
+  }
+
+  if(q.type==="text"){
+    html+=`<textarea id="txt"></textarea><button onclick="submitText()">Continue</button>`;
+  }
+
+  if(q.type==="slider"){
+    html+=`
+      <input type="range" min="${q.min}" max="${q.max}" value="5" id="sl">
+      <div id="sv">5</div>
+      <button onclick="next()">Continue</button>
+    `;
+  }
+
+  ui.innerHTML=html;
+  const sl=document.getElementById("sl");
+  if(sl) sl.oninput=()=>sv.innerText=sl.value;
+}
+
+/* ===================== ANSWERS ===================== */
+function next(){
+  state.coins++;
+  state.q++;
+  maybeTrick();
+  save();
+  render();
+}
+function pick(v){
+  const q=questions[state.q];
+  if(q.check && v!==heardSound.charAt(0).toUpperCase()+heardSound.slice(1)) return disqualify();
+  next();
+}
+function submitText(){
+  const t=document.getElementById("txt").value.trim();
+  if(t.split(/\s+/).length<2) return;
+  next();
+}
+
+/* ===================== TRICKS ===================== */
+function maybeTrick(){
+  if(Math.random()*100<state.trickChance){
+    state.inTrick=true;
+    spawnTrick();
+  }
+  state.trickChance=Math.min(100,state.trickChance+1);
+}
+let trick=null;
+
+/* ===================== CLICKER ===================== */
+function spawnTrick(){
+  const r=Math.random();
+  if(r<0.25) trick={type:"letter"};
+  else if(r<0.5) trick={type:"image"};
+  else if(r<0.75) trick={type:"slider"};
+  else trick={type:"clicker",score:0,ppc:1,target:Math.floor(Math.random()*900)+100};
+}
+function renderTrick(){
+  if(trick.type==="clicker"){
+    ui.innerHTML=`
+      <h2>Verification</h2>
+      <p>${trick.score}/${trick.target}</p>
+      <button id="clickBtn">CLICK</button>
+      <div class="progress"><div style="width:${trick.score/trick.target*100}%"></div></div>
+    `;
+    document.getElementById("clickBtn").onclick=(e)=>{
+      trick.score+=trick.ppc;
+      floatText("+"+trick.ppc,e.clientX,e.clientY);
+      if(trick.score>=trick.target){
+        state.inTrick=false;
+        save();
+        render();
+      }else renderTrick();
+    };
+    return;
+  }
+
+  if(trick.type==="letter"){
+    ui.innerHTML=`<p>Select D</p><div class="row">${["A","B","C","D"].map(l=>`<button onclick="${l==="D"?"pass()":"disqualify()"}">${l}</button>`).join("")}</div>`;
+  }
+  if(trick.type==="image"){
+    ui.innerHTML=`<p>What is this?</p><img src="tomato.png" width="120"><div class="row"><button onclick="pass()">Tomato</button><button onclick="disqualify()">Corn</button></div>`;
+  }
+  if(trick.type==="slider"){
+    const t=Math.floor(Math.random()*10)+1;
+    trick.correct=t;
+    ui.innerHTML=`<p>Slide to ${t}</p><input type="range" min="1" max="10" id="ts"><button onclick="checkSlider()">Submit</button>`;
+  }
+}
+function checkSlider(){
+  if(document.getElementById("ts").value==trick.correct) pass();
+  else disqualify();
+}
+function pass(){
+  state.inTrick=false;
+  save();
+  render();
+}
+function disqualify(){
+  ui.innerHTML=`<h1>Disqualified</h1><button onclick="resetSurvey()">Restart</button>`;
+}
+
+/* ===================== FLOAT TEXT ===================== */
+function floatText(txt,x,y){
   const d=document.createElement("div");
-  d.className="float "+(isCrit?"crit":"normal");
-  d.textContent=text;
+  d.className="float";
+  d.innerText=txt;
   d.style.left=x+"px";
   d.style.top=y+"px";
   document.body.appendChild(d);
-  setTimeout(()=>d.remove(),1200)
+  setTimeout(()=>d.remove(),1000);
 }
 
-function click(e){
-  let gain=C.ppc,isCrit=false;
-  if(Math.random()<C.crit){
-    gain*=C.critM;isCrit=true;
-  }
-  C.pts+=gain;
-  spawnFloat((isCrit?"CRIT!!! +":"+")+fmt(gain),isCrit,e.clientX,e.clientY);
-  requestAnimationFrame(renderClicker);
-}
-
-/* ===== UPGRADES ===== */
-function buyPPC(){
-  if(C.pts>=C.ppcCost){
-    C.pts-=C.ppcCost;
-    C.ppc++;
-    renderClicker();
-  }
-}
-function buyCrit(){
-  if(C.pts>=C.critCost && C.crit<0.1){
-    C.pts-=C.critCost;
-    C.crit=Math.min(0.1,C.crit+0.01);
-    C.critCost*=1.2;   // +20%
-    renderClicker();
-  }
-}
-function buyCritM(){
-  if(C.pts>=C.critMCost && C.critM<5){
-    C.pts-=C.critMCost;
-    C.critM=Math.min(5,C.critM+0.1);
-    C.critMCost*=1.4; // +40%
-    renderClicker();
-  }
-}
-
-/* ================= END ================= */
+/* ===================== FINISH ===================== */
 function finish(){
-  panel(`
-    <h1 class=center>🎉 Survey Completed</h1>
-    <div class=center>
-      <button onclick="resetSurvey()">Start Over Survey</button>
-    </div>
-  `)
+  ui.innerHTML=`
+    <h1>Survey Completed</h1>
+    <p>You earned coins.</p>
+    <button onclick="resetSurvey()">Start Over Survey</button>
+  `;
 }
 
-renderSurvey();
+render();
 </script>
 </body>
 </html>
