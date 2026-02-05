@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>Survey Game</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <style>
 body{
   margin:0;
@@ -13,63 +12,62 @@ body{
   color:#e9ecff;
 }
 #ui{
-  max-width:760px;
+  max-width:800px;
   margin:40px auto;
   background:#161a2e;
-  padding:24px;
-  border-radius:16px;
-  box-shadow:0 20px 50px rgba(0,0,0,.4);
+  padding:26px;
+  border-radius:18px;
+  box-shadow:0 20px 60px rgba(0,0,0,.45);
 }
 button{
-  padding:12px 18px;
+  padding:12px 20px;
   border:none;
-  border-radius:12px;
+  border-radius:14px;
   font-weight:700;
   background:#7cf3c0;
   cursor:pointer;
 }
 .row{display:flex;gap:12px;flex-wrap:wrap}
+.badge{font-size:14px;margin-bottom:6px;color:#9aa3ff}
 .progress{height:10px;background:#22286b;border-radius:999px;overflow:hidden;margin:12px 0}
 .progress>div{height:100%;background:#7cf3c0}
-.badge{font-size:14px;margin-bottom:6px}
-.coin{position:fixed;top:12px;left:12px;font-weight:700}
-.float{
-  position:absolute;
-  font-size:34px;
-  font-weight:900;
-  pointer-events:none;
-  animation:float 1s ease-out forwards;
+table{
+  width:100%;
+  border-collapse:collapse;
+  margin-top:12px;
 }
-.float.crit{color:#ff6b6b}
-@keyframes float{
-  from{opacity:1;transform:translateY(0)}
-  to{opacity:0;transform:translateY(-50px)}
+td,th{
+  border:1px solid #2a2f6b;
+  padding:10px;
+  text-align:center;
+  cursor:pointer;
+}
+td.selected{background:#7cf3c0;color:#06281a;font-weight:800}
+.fade{
+  animation:fadeSlide 2.5s ease forwards;
+}
+@keyframes fadeSlide{
+  from{opacity:1;transform:translateX(0)}
+  to{opacity:0;transform:translateX(-40px)}
 }
 </style>
 </head>
 
 <body>
-<div class="coin" id="coinUI">🪙 0</div>
 <div id="ui"></div>
 
 <script>
-/* ===================== SAVE / STATE ===================== */
+/* ===================== STATE / SAVE ===================== */
 const state = JSON.parse(localStorage.getItem("survey_state")) || {
-  q:0,
+  step:0,
   coins:0,
-  trickChance:5,
-  inTrick:false
+  movieIndex:0,
+  tableRatings:{},
+  soundHeard:null
 };
 function save(){ localStorage.setItem("survey_state",JSON.stringify(state)); }
-function resetSurvey(){
-  state.q=0;
-  state.trickChance=5;
-  state.inTrick=false;
-  save();
-  render();
-}
 
-/* ===================== AUDIO (REAL SOUND) ===================== */
+/* ===================== AUDIO ===================== */
 function playSound(type, onEnd){
   const ctx = new (window.AudioContext||window.webkitAudioContext)();
   const osc = ctx.createOscillator();
@@ -93,179 +91,170 @@ function playSound(type, onEnd){
   };
 }
 
-/* ===================== QUESTIONS ===================== */
-const questions=[
-  {type:"intro",text:"The first questions collect personal information."},
-  {type:"sound"},
-  {type:"choice",text:"What did you hear?",opts:["Birds","Wolf","Traffic"],check:true},
-  {type:"choice",text:"What is your gender?",opts:["Man","Woman"]},
-  {type:"choice",text:"What is your age?",opts:["-18","20-30","30-40","40-50","50-60","60-70","+70"]},
-  {type:"text",text:"What does success mean to you?"},
-  {type:"slider",text:"How motivated are you?",min:1,max:10}
+/* ===================== MOVIES (MIXED) ===================== */
+const movies=[
+  "How to Train Your Dragon","Solar Drift","Echoes of Tomorrow",
+  "The Last Moon","Pixel Knights","Iron Skies","Dreamfall City",
+  "Neon Harbor","Shadow of Atlantis","Starlight Run",
+  "Quantum Heist","Frozen Horizon","The Paper Giant",
+  "Crimson Orbit","Glass Kingdom","Midnight Engine",
+  "Aurora Protocol","Skybound","Lost in Marble",
+  "Digital Wolves","The Silent Metro","Golden Circuit",
+  "Parallel Summer","Nova Street","Forgotten Signal",
+  "The Clockmaker","Phantom Signal","Blue Orbit",
+  "Hollow Lights","Beyond the Static"
 ];
-while(questions.length<20){
-  questions.push({type:"text",text:"Describe a goal you want to achieve."});
-}
-
-let heardSound=null;
-const ui=document.getElementById("ui");
 
 /* ===================== RENDER ===================== */
+const ui=document.getElementById("ui");
+
 function render(){
-  document.getElementById("coinUI").innerText="🪙 "+state.coins;
-
-  if(state.inTrick) return renderTrick();
-  if(state.q>=20) return finish();
-
-  const q=questions[state.q];
-  let html=`
-    <div class="badge">Question ${state.q+1}/20</div>
-    <div class="badge">Trick Chance: ${state.trickChance}%</div>
-    <div class="progress"><div style="width:${(state.q/20)*100}%"></div></div>
-    <p>${q.text||""}</p>
-  `;
-
-  if(q.type==="intro"){
-    html+=`<button onclick="next()">Continue</button>`;
-    ui.innerHTML=html; return;
-  }
-
-  if(q.type==="sound"){
-    const sounds=["Birds","Wolf","Traffic"];
-    heardSound=sounds[Math.floor(Math.random()*sounds.length)];
-    html+=`
-      <button id="playBtn">▶ Play Sound</button>
-      <button id="contBtn" disabled>Continue</button>
-    `;
-    ui.innerHTML=html;
-    let played=false;
-    playBtn.onclick=()=>{
-      if(played) return;
-      played=true;
-      playSound(heardSound,()=>contBtn.disabled=false);
-    };
-    contBtn.onclick=next;
-    return;
-  }
-
-  if(q.type==="choice"){
-    html+=`<div class="row">${q.opts.map(o=>`<button onclick="pick('${o}')">${o}</button>`).join("")}</div>`;
-  }
-
-  if(q.type==="text"){
-    html+=`<textarea id="txt"></textarea><button onclick="submitText()">Continue</button>`;
-  }
-
-  if(q.type==="slider"){
-    html+=`
-      <input type="range" min="${q.min}" max="${q.max}" value="5" id="sl">
-      <div id="sv">5</div>
-      <button onclick="next()">Continue</button>
-    `;
-  }
-
-  ui.innerHTML=html;
-  const sl=document.getElementById("sl");
-  if(sl) sl.oninput=()=>sv.innerText=sl.value;
+  if(state.step===0) return intro();
+  if(state.step===1) return soundCheck();
+  if(state.step===2) return soundAnswer();
+  if(state.step>=3 && state.step<=7) return personalInfo();
+  if(state.step===8) return movieBatch();
+  if(state.step===9) return tableRating();
+  finish();
 }
 
-/* ===================== ANSWERS ===================== */
+/* ===================== SCREENS ===================== */
+function intro(){
+  ui.innerHTML=`
+    <h2>Welcome</h2>
+    <p>The first few questions collect personal information and are not part of the survey.</p>
+    <button onclick="next()">Continue</button>
+  `;
+}
+
+function soundCheck(){
+  const sounds=["Birds","Wolf","Traffic"];
+  state.soundHeard=sounds[Math.floor(Math.random()*sounds.length)];
+  save();
+  ui.innerHTML=`
+    <h3>Please listen carefully</h3>
+    <button id="play">▶ Play Sound</button>
+    <button id="cont" disabled>Continue</button>
+  `;
+  let played=false;
+  play.onclick=()=>{
+    if(played) return;
+    played=true;
+    playSound(state.soundHeard,()=>cont.disabled=false);
+  };
+  cont.onclick=next;
+}
+
+function soundAnswer(){
+  ui.innerHTML=`
+    <h3>What did you hear?</h3>
+    <div class="row">
+      ${["Birds","Wolf","Traffic"].map(o=>`<button onclick="pickSound('${o}')">${o}</button>`).join("")}
+    </div>
+  `;
+}
+function pickSound(v){
+  if(v!==state.soundHeard) return disqualify();
+  next();
+}
+
+const infoQuestions=[
+  {q:"What is your gender?",opts:["Man","Woman"]},
+  {q:"What is your age?",opts:["-18","20-30","30-40","40-50","50-60","60-70","+70"]},
+  {q:"What is your ZIP code?",text:true},
+  {q:"What is your marital status?",opts:["Single","Divorced","Family"]},
+  {q:"Did you buy a car over 5 years?",opts:["Yes","No"],kickOn:"No"}
+];
+
+function personalInfo(){
+  const i=state.step-3;
+  const q=infoQuestions[i];
+  let html=`<h3>${q.q}</h3>`;
+  if(q.opts){
+    html+=`<div class="row">${q.opts.map(o=>`<button onclick="pickInfo('${o}')">${o}</button>`).join("")}</div>`;
+  } else {
+    html+=`<input id="txt"><button onclick="next()">Continue</button>`;
+  }
+  ui.innerHTML=html;
+}
+function pickInfo(v){
+  const q=infoQuestions[state.step-3];
+  if(q.kickOn && v===q.kickOn) return disqualify();
+  next();
+}
+
+/* ===================== MOVIE BATCH ===================== */
+function movieBatch(){
+  if(state.movieIndex>=30){
+    next();
+    return;
+  }
+  const m=movies[state.movieIndex];
+  ui.innerHTML=`
+    <div class="badge">${state.movieIndex+1}/30</div>
+    <h3 id="movie">${m}</h3>
+    <div class="row">
+      ${["Extremely good","Particularly good","More or less","Particularly bad","Extremely bad"]
+        .map(o=>`<button onclick="rateMovie()">${o}</button>`).join("")}
+    </div>
+  `;
+}
+function rateMovie(){
+  const el=document.getElementById("movie");
+  el.classList.add("fade");
+  setTimeout(()=>{
+    state.movieIndex++;
+    save();
+    movieBatch();
+  },2500);
+}
+
+/* ===================== TABLE RATING ===================== */
+const carModels=["GoldCar","Pro%","Sixt","Ford"];
+function tableRating(){
+  let rows=carModels.map(m=>`
+    <tr>
+      <th>${m}</th>
+      ${[1,2,3,4,5].map(n=>`
+        <td class="${state.tableRatings[m]===n?"selected":""}"
+            onclick="rateTable('${m}',${n})">${n}</td>`).join("")}
+    </tr>
+  `).join("");
+
+  ui.innerHTML=`
+    <h3>Rate these car models</h3>
+    <table>
+      <tr><th></th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th></tr>
+      ${rows}
+    </table>
+    <button ${Object.keys(state.tableRatings).length<carModels.length?"disabled":""}
+      onclick="next()">Continue</button>
+  `;
+}
+function rateTable(m,n){
+  state.tableRatings[m]=n;
+  save();
+  tableRating();
+}
+
+/* ===================== FLOW ===================== */
 function next(){
   state.coins++;
-  state.q++;
-  maybeTrick();
+  state.step++;
   save();
   render();
 }
-function pick(v){
-  const q=questions[state.q];
-  if(q.check && v!==heardSound) return disqualify();
-  next();
-}
-function submitText(){
-  const t=document.getElementById("txt").value.trim();
-  if(t.split(/\s+/).length<2) return;
-  next();
-}
-
-/* ===================== TRICKS ===================== */
-function maybeTrick(){
-  if(Math.random()*100<state.trickChance){
-    state.inTrick=true;
-    spawnTrick();
-  }
-  state.trickChance=Math.min(100,state.trickChance+1);
-}
-let trick=null;
-
-function spawnTrick(){
-  const r=Math.random();
-  if(r<0.25) trick={type:"letter"};
-  else if(r<0.5) trick={type:"image"};
-  else if(r<0.75) trick={type:"slider"};
-  else trick={type:"clicker",score:0,ppc:1,target:Math.floor(Math.random()*900)+100};
-}
-
-/* ===================== TRICK RENDER ===================== */
-function renderTrick(){
-  if(trick.type==="clicker"){
-    ui.innerHTML=`
-      <h2>Verification</h2>
-      <p>${trick.score}/${trick.target}</p>
-      <button id="clickBtn">CLICK</button>
-      <div class="progress"><div style="width:${(trick.score/trick.target)*100}%"></div></div>
-    `;
-    clickBtn.onclick=(e)=>{
-      trick.score+=trick.ppc;
-      floatText("+"+trick.ppc,e.clientX,e.clientY,false);
-      if(trick.score>=trick.target){ state.inTrick=false; save(); render(); }
-      else renderTrick();
-    };
-    return;
-  }
-
-  if(trick.type==="letter"){
-    ui.innerHTML=`<p>Select <b>D</b></p><div class="row">${["A","B","C","D"].map(l=>`<button onclick="${l==="D"?"pass()":"disqualify()"}">${l}</button>`).join("")}</div>`;
-  }
-  if(trick.type==="image"){
-    ui.innerHTML=`<p>What is this?</p><img src="tomato.png" width="120"><div class="row"><button onclick="pass()">Tomato</button><button onclick="disqualify()">Corn</button></div>`;
-  }
-  if(trick.type==="slider"){
-    const t=Math.floor(Math.random()*10)+1;
-    trick.correct=t;
-    ui.innerHTML=`<p>Slide to ${t}</p><input type="range" min="1" max="10" id="ts"><div id="tv">5</div><button onclick="checkSlider()">Submit</button>`;
-    ts.oninput=()=>tv.innerText=ts.value;
-  }
-}
-function checkSlider(){
-  if(ts.value==trick.correct) pass();
-  else disqualify();
-}
-function pass(){ state.inTrick=false; save(); render(); }
 function disqualify(){
-  ui.innerHTML=`<h1>Disqualified</h1><button onclick="resetSurvey()">Restart</button>`;
+  ui.innerHTML=`<h1>Disqualified</h1><button onclick="localStorage.clear();location.reload()">Restart</button>`;
 }
-
-/* ===================== FLOAT TEXT ===================== */
-function floatText(txt,x,y,crit){
-  const d=document.createElement("div");
-  d.className="float"+(crit?" crit":"");
-  d.innerText=txt;
-  d.style.left=x+"px";
-  d.style.top=y+"px";
-  document.body.appendChild(d);
-  setTimeout(()=>d.remove(),1000);
-}
-
-/* ===================== FINISH ===================== */
 function finish(){
   ui.innerHTML=`
-    <h1>Survey Completed</h1>
-    <p>You earned coins.</p>
-    <button onclick="resetSurvey()">Start Over Survey</button>
+    <h1>Survey Section Complete</h1>
+    <p>You may now continue.</p>
   `;
 }
 
+/* ===================== START ===================== */
 render();
 </script>
 </body>
