@@ -259,3 +259,222 @@ render();
 </script>
 </body>
 </html>
+<script>
+/* ===================== TRICK SYSTEM ===================== */
+state.trickChance ??= 5;
+state.inTrick ??= false;
+
+function maybeTrick(){
+  if(Math.random()*100 < state.trickChance){
+    state.inTrick = true;
+    state.trickType = pickTrick();
+    renderTrick();
+    return true;
+  }
+  state.trickChance = Math.min(100, state.trickChance + 1);
+  return false;
+}
+
+function pickTrick(){
+  const r=Math.random();
+  if(r<0.25) return "letter";
+  if(r<0.5) return "image";
+  if(r<0.75) return "slider";
+  return "clicker";
+}
+
+/* Hook trick check into flow */
+const oldNext = next;
+next = function(){
+  state.coins++;
+  if(!state.inTrick && maybeTrick()) return;
+  state.step++;
+  save();
+  render();
+};
+
+/* ===================== TRICK RENDER ===================== */
+function renderTrick(){
+  if(state.trickType==="letter") return letterTrick();
+  if(state.trickType==="image") return imageTrick();
+  if(state.trickType==="slider") return sliderTrick();
+  clickerTrick();
+}
+
+function passTrick(){
+  state.inTrick=false;
+  state.trickChance = Math.min(100, state.trickChance + 1);
+  save();
+  render();
+}
+
+/* ===== Letter ===== */
+function letterTrick(){
+  ui.innerHTML=`
+    <h3>Please select <b>D</b></h3>
+    <div class="row">
+      ${["A","B","C","D"].map(l=>`<button onclick="letterPick('${l}')">${l}</button>`).join("")}
+    </div>
+  `;
+}
+function letterPick(l){ l==="D"?passTrick():disqualify(); }
+
+/* ===== Image ===== */
+function imageTrick(){
+  ui.innerHTML=`
+    <h3>What is this?</h3>
+    <img src="tomato.png" style="max-width:200px">
+    <div class="row">
+      ${["Corn","Tomato","Egg","Avocado"].map(o=>`<button onclick="imagePick('${o}')">${o}</button>`).join("")}
+    </div>
+  `;
+}
+function imagePick(o){ o==="Tomato"?passTrick():disqualify(); }
+
+/* ===== Slider ===== */
+function sliderTrick(){
+  const target=Math.floor(Math.random()*10)+1;
+  state.sliderTarget=target;
+  ui.innerHTML=`
+    <h3>Slide to ${target}</h3>
+    <h2 id="sv">5</h2>
+    <input type="range" min="1" max="10" value="5"
+      oninput="sv.innerText=this.value">
+    <button onclick="checkSlider()">Submit</button>
+  `;
+}
+function checkSlider(){
+  document.querySelector("input").value==state.sliderTarget
+    ?passTrick():disqualify();
+}
+
+/* ===================== CLICKER GAME ===================== */
+const C = state.clicker ??= {
+  pts:0, target:0,
+  ppc:1, pps:0,
+  crit:0.1, multi:2,
+  lastClick:0, clicks:[]
+};
+
+function clickerTrick(){
+  if(!C.target) C.target = Math.floor(Math.random()*901)+100;
+  renderClicker();
+}
+
+function renderClicker(){
+  ui.innerHTML=`
+    <h3>Verification Clicker</h3>
+    <h2 id="pts">${fmt(C.pts)} / ${fmt(C.target)}</h2>
+
+    <div class="progress"><div id="bar"></div></div>
+
+    <p>
+      PPC: ${C.ppc} |
+      PPS: ${C.pps} |
+      CPS: <span id="cps">0</span><br>
+      Crit: ${C.crit.toFixed(1)}% |
+      Multi: x${C.multi.toFixed(1)}
+    </p>
+
+    <button id="clickBtn" style="font-size:22px;padding:18px 28px">
+      CLICK
+    </button>
+
+    <div class="row">
+      <button onclick="upPPC()">+1 PPC</button>
+      <button onclick="upPPS()">+1 PPS (50)</button>
+      <button onclick="upCrit()">+1% Crit (5000)</button>
+      <button onclick="upMulti()">+0.1 Multi (1000)</button>
+    </div>
+
+    <button id="cont" style="display:none" onclick="passClicker()">Continue</button>
+  `;
+
+  updateBar();
+  document.getElementById("clickBtn").onclick = doClick;
+}
+
+/* ===== Click logic ===== */
+function doClick(e){
+  const now=Date.now();
+  C.clicks=C.clicks.filter(t=>now-t<1000);
+  C.clicks.push(now);
+
+  document.getElementById("cps").innerText=C.clicks.length;
+  if(C.clicks.length>=15) return disqualify();
+
+  let gain=C.ppc;
+  let critHit=Math.random()*100<C.crit;
+  if(critHit) gain=Math.floor(gain*C.multi);
+
+  C.pts+=gain;
+  spawnFloat(e, gain, critHit);
+  updateBar();
+  save();
+}
+
+setInterval(()=>{
+  if(C.pps>0){
+    C.pts+=C.pps;
+    updateBar();
+  }
+},1000);
+
+/* ===== Floating text ===== */
+function spawnFloat(e,amt,crit){
+  const d=document.createElement("div");
+  d.textContent = crit?`CRIT!!! +${amt}`:`+${amt}`;
+  d.style.position="fixed";
+  const r=e.target.getBoundingClientRect();
+  d.style.left=r.left+r.width/2+"px";
+  d.style.top=r.top+"px";
+  d.style.fontSize=crit?"28px":"22px";
+  d.style.color=crit?"red":"white";
+  d.style.pointerEvents="none";
+  d.style.transition="all 1s ease";
+  document.body.appendChild(d);
+  requestAnimationFrame(()=>{
+    d.style.transform="translateY(-60px)";
+    d.style.opacity="0";
+  });
+  setTimeout(()=>d.remove(),1000);
+}
+
+/* ===== Bar ===== */
+function updateBar(){
+  const b=document.getElementById("bar");
+  if(!b) return;
+  b.style.width=Math.min(100,(C.pts/C.target)*100)+"%";
+  document.getElementById("pts").innerText=
+    `${fmt(C.pts)} / ${fmt(C.target)}`;
+  if(C.pts>=C.target)
+    document.getElementById("cont").style.display="block";
+}
+
+/* ===== Continue ===== */
+function passClicker(){
+  C.target=0;
+  state.inTrick=false;
+  save();
+  render();
+}
+
+/* ===== Upgrades ===== */
+function upPPC(){ C.ppc++; save(); renderClicker(); }
+function upPPS(){ if(C.pts<50) return; C.pts-=50; C.pps++; save(); renderClicker(); }
+function upCrit(){
+  if(C.crit>=10||C.pts<5000) return;
+  C.pts-=5000; C.crit+=1; save(); renderClicker();
+}
+function upMulti(){
+  if(C.multi>=5||C.pts<1000) return;
+  C.pts-=1000; C.multi+=0.1; save(); renderClicker();
+}
+
+/* ===== Utils ===== */
+function fmt(n){
+  if(n>=1e6) return (n/1e6).toFixed(2)+"M";
+  if(n>=1e3) return (n/1e3).toFixed(1)+"K";
+  return Math.floor(n);
+}
+</script>
