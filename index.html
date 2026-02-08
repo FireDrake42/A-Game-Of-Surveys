@@ -2,57 +2,37 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Survey + Clicker Game</title>
+<title>Survey Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
 body{
   margin:0;
-  font-family:system-ui, sans-serif;
   background:#0b1020;
   color:white;
+  font-family:system-ui,sans-serif;
 }
-#app{
-  max-width:900px;
-  margin:auto;
-  padding:20px;
-}
+#app{max-width:900px;margin:auto;padding:20px}
 button{
-  padding:10px 18px;
-  font-size:16px;
+  padding:12px 18px;
   border:none;
   border-radius:10px;
+  font-size:16px;
   cursor:pointer;
 }
 .primary{background:#4f7cff;color:white}
 .secondary{background:#333;color:white}
-.row{display:flex;gap:10px;flex-wrap:wrap}
-.progress{
-  width:100%;height:16px;background:#222;border-radius:10px;overflow:hidden
-}
-.progress > div{
-  height:100%;background:#4f7cff;width:0%
-}
-#clickBtn{
-  width:220px;height:220px;
-  border-radius:50%;
-  font-size:28px;
-  margin:20px auto;
-  display:block;
-}
-.float{
-  position:absolute;
-  pointer-events:none;
-  font-size:26px;
-  animation:floatUp 1s forwards;
-}
-@keyframes floatUp{
-  from{opacity:1;transform:translateY(0)}
-  to{opacity:0;transform:translateY(-60px)}
-}
-.red{color:#ff4f4f}
-.white{color:white}
+.choice{display:block;margin:8px 0;width:100%}
+.progress{height:10px;background:#222;border-radius:10px;overflow:hidden;margin:10px 0}
+.progress div{height:100%;background:#4f7cff;width:0%}
 .topLeft{
   position:fixed;top:10px;left:10px;font-weight:bold
 }
+.shop button{display:block;width:100%;margin:8px 0}
+table{width:100%;border-collapse:collapse}
+td,th{border:1px solid #555;padding:10px;text-align:center;cursor:pointer}
+td.selected{background:#4f7cff}
+.fade{animation:fade 0.4s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
 </style>
 </head>
 
@@ -60,189 +40,190 @@ button{
 <div class="topLeft" id="coinsUI">🪙 Coins: 0</div>
 <div id="app"></div>
 
+<!-- AUDIO (PERSISTENT) -->
+<audio id="soundBirds" src="birds.mp3"></audio>
+<audio id="soundWolf" src="wolf.mp3"></audio>
+<audio id="soundTraffic" src="traffic.mp3"></audio>
+
 <script>
 /* ================= STATE ================= */
-let state = JSON.parse(localStorage.getItem("surveyGame")) || {
+let state = JSON.parse(localStorage.getItem("surveyState")) || {
   step:0,
   coins:0,
-  trickChance:5,
-  points:0,
-  ppc:1,
-  pps:0,
-  critChance:0.1,
-  critMulti:2,
-  mode:"survey"
+  answers:{},
+  surveyComplete:false,
 };
 
-const questions = [
-  {q:"Sound check: Click play and listen.",type:"sound"},
-  {q:"What did you hear?",type:"choice",o:["Birds","Wolf","Traffic"]},
-  {q:"What is your gender?",type:"choice",o:["Man","Woman"]},
-  {q:"What is your age?",type:"choice",o:["-18","20-30","30-40","40-50","50+"]},
-  {q:"Zip code?",type:"input"},
-  {q:"Did you buy a car in last 5 years?",type:"choice",o:["Yes","No"],disqualify:"No"},
+/* ================= QUESTIONS ================= */
+const survey = [
+  {type:"info", text:"The first questions collect personal information."},
+
+  {type:"sound"},
+  {type:"choice", q:"What did you hear?", o:["Birds Chirping","Wolf Howling","Noisy Traffic"], correct:true},
+
+  {type:"choice", q:"What is your gender?", o:["Man","Woman"]},
+  {type:"choice", q:"Your age?", o:["-18","20-30","30-40","40-50","50+"]},
+  {type:"input", q:"Zip code (numbers only)", numeric:true},
+
+  {type:"choice", q:"Did you buy a car in the last 5 years?", o:["Yes","No"], disqualify:"No"},
+  {type:"choice", q:"What year did you buy the car?", o:["2022","2023","2024","2025","2026"]},
+  {type:"choice", q:"Car model?", o:["Ford","Sixt","GoldCar","Pro%"]},
+
+  {type:"table", q:"Rate these car models"},
+  {type:"movies"}
 ];
 
-while(questions.length < 20){
-  questions.push({q:"Describe a recent purchase experience.",type:"input"});
-}
+/* ================= RENDER ================= */
+function render(){
+  $("coinsUI").textContent="🪙 Coins: "+state.coins;
+  const q = survey[state.step];
+  if(!q){ return endSurvey(); }
 
-/* ================= UTILS ================= */
-const $ = id => document.getElementById(id);
-function save(){ localStorage.setItem("surveyGame",JSON.stringify(state)); }
-function fmt(n){
-  if(n>=1e6) return (n/1e6).toFixed(2)+"M";
-  if(n>=1e3) return (n/1e3).toFixed(1)+"K";
-  return Math.floor(n);
-}
+  let html = `<div class="fade"><div class="progress">
+    <div style="width:${(state.step/survey.length)*100}%"></div></div>`;
 
-/* ================= SURVEY ================= */
-function renderSurvey(){
-  $("coinsUI").textContent = "🪙 Coins: "+state.coins;
-  const q = questions[state.step];
-  let html = `<h2>Question ${state.step+1}/20</h2>
-  <p>${q.q}</p>
-  <p>Trick Chance: ${state.trickChance.toFixed(1)}%</p>`;
-
-  if(q.type==="input"){
-    html+=`<input id="ans" style="width:100%;padding:10px">`;
+  if(q.type==="info"){
+    html+=`<p>${q.text}</p><button class="primary" onclick="next()">Continue</button>`;
   }
+
+  if(q.type==="sound"){
+    html+=`
+      <h3>Sound Check</h3>
+      <button class="primary" onclick="playSound()">▶ Play Sound</button>
+      <button id="continueBtn" disabled class="secondary" onclick="next()">Continue</button>
+    `;
+  }
+
   if(q.type==="choice"){
+    html+=`<h3>${q.q}</h3>`;
     q.o.forEach(o=>{
-      html+=`<button onclick="answer('${o}')">${o}</button> `;
+      html+=`<button class="choice primary" onclick="answer('${o}')">${o}</button>`;
     });
   }
-  if(q.type==="sound"){
-    html+=`<audio id="audio" src="https://www.soundjay.com/nature/birds-1.mp3"></audio>
-    <button onclick="playSound()">▶ Play</button>
-    <button id="cont" disabled onclick="next()">Continue</button>`;
-  }
+
   if(q.type==="input"){
-    html+=`<br><br><button class="primary" onclick="answer()">Continue</button>`;
+    html+=`
+      <h3>${q.q}</h3>
+      <input id="inp" style="width:100%;padding:10px">
+      <br><br>
+      <button class="primary" onclick="answerInput()">Continue</button>
+    `;
   }
 
-  $("app").innerHTML = html;
+  if(q.type==="table"){
+    html+=`<h3>${q.q}</h3><table>`;
+    ["Ford","Sixt","GoldCar","Pro%"].forEach(r=>{
+      html+=`<tr><th>${r}</th>`;
+      for(let i=1;i<=5;i++){
+        html+=`<td onclick="selectCell(this)">${i}</td>`;
+      }
+      html+=`</tr>`;
+    });
+    html+=`</table><br><button class="primary" onclick="next()">Continue</button>`;
+  }
+
+  if(q.type==="movies"){
+    renderMovies(); return;
+  }
+
+  html+=`</div>`;
+  $("app").innerHTML=html;
 }
 
 function playSound(){
-  const a = $("audio");
-  a.play();
-  a.onended = ()=> $("cont").disabled=false;
+  const sounds=[soundBirds,soundWolf,soundTraffic];
+  const s=sounds[Math.floor(Math.random()*3)];
+  s.currentTime=0;
+  s.play();
+  s.onended=()=>$("continueBtn").disabled=false;
 }
 
 function answer(v){
-  const q = questions[state.step];
+  const q=survey[state.step];
   if(q.disqualify && v===q.disqualify){
-    $("app").innerHTML = `<h2>Disqualified</h2>`;
+    $("app").innerHTML="<h2>Disqualified</h2>";
     return;
   }
+  state.answers[state.step]=v;
   state.coins++;
   state.step++;
-  state.trickChance+=1;
-  save();
-  if(state.step>=20){
-    endSurvey();
-  }else{
-    renderSurvey();
-  }
+  save(); render();
 }
 
-function next(){ answer(); }
+function answerInput(){
+  const v=$("inp").value.trim();
+  if(!v) return;
+  state.answers[state.step]=v;
+  state.coins++;
+  state.step++;
+  save(); render();
+}
 
+function next(){
+  state.step++;
+  save(); render();
+}
+
+function selectCell(td){
+  td.parentNode.querySelectorAll("td").forEach(c=>c.classList.remove("selected"));
+  td.classList.add("selected");
+}
+
+/* ================= MOVIES ================= */
+let movieIndex=0;
+const movies=["How to Train Your Dragon","Skyfall","Echo City","Moonrise 9"];
+
+function renderMovies(){
+  $("app").innerHTML=`
+    <h3>Rate this movie</h3>
+    <p><b>${movies[movieIndex]}</b></p>
+    <p>${movieIndex+1} / ${movies.length}</p>
+    ${["Extremely good","Particularly good","More or less","Particularly bad","Extremely bad"]
+      .map(o=>`<button class="choice primary" onclick="movieAnswer()">${o}</button>`).join("")}
+  `;
+}
+
+function movieAnswer(){
+  state.coins++;
+  movieIndex++;
+  if(movieIndex>=movies.length){
+    state.step++;
+    save(); render();
+  }else renderMovies();
+}
+
+/* ================= END + SHOP ================= */
 function endSurvey(){
-  $("app").innerHTML = `
-    <h2>Survey Section Complete</h2>
-    <button class="primary" onclick="startClicker()">Continue</button>
-    <button class="secondary" onclick="restartSurvey()">Start Over Survey</button>
-  `;
-}
-
-/* ================= CLICKER ================= */
-let cps=0,lastClick=0;
-
-function startClicker(){
-  state.mode="clicker";
-  renderClicker();
-  setInterval(()=>{
-    state.points+=state.pps;
-    renderClicker();
-  },1000);
-}
-
-function renderClicker(){
-  $("coinsUI").textContent = "🪙 Coins: "+state.coins;
-  let pct = Math.min(100,state.points/1000*100);
-  $("app").innerHTML = `
-  <h2>Clicker Verification</h2>
-  <p>Points: ${fmt(state.points)}</p>
-  <p>PPC: ${state.ppc} | PPS: ${state.pps}</p>
-  <p>Crit Chance: ${state.critChance.toFixed(2)}% | Crit x${state.critMulti}</p>
-  <div class="progress"><div style="width:${pct}%"></div></div>
-  <button id="clickBtn" class="primary" onclick="click(event)">CLICK</button>
-  <div class="row">
-    <button onclick="buyPPC()">+1 PPC (100)</button>
-    <button onclick="buyPPS()">+1 PPS (50)</button>
-    <button onclick="buyCrit()">+1% Crit (5000)</button>
-    <button onclick="buyMulti()">+0.1 Multi (1000)</button>
-  </div>
-  ${state.points>=1000?`<br><button onclick="alert('Continue!')">Continue</button>`:""}
-  `;
-}
-
-function click(e){
-  const now=Date.now();
-  if(now-lastClick<70)cps++;
-  lastClick=now;
-
-  let gain=state.ppc;
-  let crit=false;
-  if(Math.random()*100 < state.critChance){
-    gain*=state.critMulti;
-    crit=true;
-  }
-  state.points+=gain;
-  floatText(e.clientX,e.clientY,crit?`CRIT +${gain}`:`+${gain}`,crit);
+  state.surveyComplete=true;
   save();
-  renderClicker();
+  $("app").innerHTML=`
+    <h2>Survey Complete</h2>
+    <div class="shop">
+      <h3>Coin Shop</h3>
+      <button onclick="buySkip()">Skip Chance +0.25% (100 coins)</button>
+      <button onclick="buyQuestions()">+5 Survey Questions (125 coins)</button>
+      <button onclick="buyDouble()">Double Coin Chance (40 coins)</button>
+    </div>
+    <button class="secondary" onclick="restart()">Start Over Survey</button>
+  `;
 }
 
-function floatText(x,y,t,crit){
-  const d=document.createElement("div");
-  d.className="float "+(crit?"red":"white");
-  d.style.left=x+"px";
-  d.style.top=y+"px";
-  d.textContent=t;
-  document.body.appendChild(d);
-  setTimeout(()=>d.remove(),1000);
-}
+/* ================= SHOP LOGIC ================= */
+function buySkip(){ if(state.coins>=100){state.coins-=100;save();render();} }
+function buyQuestions(){ if(state.coins>=125){state.coins-=125;save();render();} }
+function buyDouble(){ if(state.coins>=40){state.coins-=40;save();render();} }
 
-/* ================= UPGRADES ================= */
-function buyPPC(){ if(state.points>=100){state.points-=100;state.ppc++;}}
-function buyPPS(){ if(state.points>=50){state.points-=50;state.pps++;}}
-function buyCrit(){
-  if(state.points>=5000 && state.critChance<10){
-    state.points-=5000;
-    state.critChance=Math.min(10,state.critChance+1);
-  }
-}
-function buyMulti(){
-  if(state.points>=1000 && state.critMulti<5){
-    state.points-=1000;
-    state.critMulti+=0.1;
-  }
-}
-
-/* ================= RESET ================= */
-function restartSurvey(){
+function restart(){
   state.step=0;
-  state.trickChance=5;
-  state.mode="survey";
-  save();
-  renderSurvey();
+  state.answers={};
+  save(); render();
 }
+
+function save(){ localStorage.setItem("surveyState",JSON.stringify(state)); }
+const $=id=>document.getElementById(id);
 
 /* ================= INIT ================= */
-state.mode==="survey"?renderSurvey():startClicker();
+render();
 </script>
 </body>
 </html>
