@@ -4,83 +4,144 @@
 <meta charset="UTF-8">
 <title>Survey Game</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- PARTICLES -->
+<script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
+
 <style>
-body{
+html,body{
   margin:0;
-  background:#0b1020;
+  padding:0;
+  background:#050814;
   color:white;
   font-family:system-ui,sans-serif;
+  overflow:hidden;
 }
-#app{max-width:900px;margin:auto;padding:20px}
+#particles-js{
+  position:fixed;
+  width:100%;
+  height:100%;
+  z-index:-1;
+}
+#app{
+  max-width:900px;
+  margin:auto;
+  padding:30px;
+}
 button{
-  padding:12px 18px;
+  padding:14px 20px;
   border:none;
-  border-radius:10px;
+  border-radius:12px;
   font-size:16px;
   cursor:pointer;
 }
 .primary{background:#4f7cff;color:white}
 .secondary{background:#333;color:white}
-.choice{display:block;margin:8px 0;width:100%}
-.progress{height:10px;background:#222;border-radius:10px;overflow:hidden;margin:10px 0}
-.progress div{height:100%;background:#4f7cff;width:0%}
+.choice{display:block;width:100%;margin:8px 0}
+.progress{height:10px;background:#222;border-radius:10px;overflow:hidden}
+.progress div{height:100%;background:#4f7cff}
 .topLeft{
-  position:fixed;top:10px;left:10px;font-weight:bold
+  position:fixed;
+  top:10px;
+  left:10px;
+  font-weight:bold;
 }
-.shop button{display:block;width:100%;margin:8px 0}
-table{width:100%;border-collapse:collapse}
-td,th{border:1px solid #555;padding:10px;text-align:center;cursor:pointer}
-td.selected{background:#4f7cff}
-.fade{animation:fade 0.4s}
+.fade{animation:fade .4s}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 </style>
 </head>
 
 <body>
+
+<div id="particles-js"></div>
 <div class="topLeft" id="coinsUI">🪙 Coins: 0</div>
 <div id="app"></div>
 
-<!-- AUDIO (PERSISTENT) -->
-<audio id="soundBirds" src="birds.mp3"></audio>
-<audio id="soundWolf" src="wolf.mp3"></audio>
-<audio id="soundTraffic" src="traffic.mp3"></audio>
-
 <script>
+/* ================= PARTICLES INIT ================= */
+particlesJS("particles-js",{
+  particles:{
+    number:{value:60},
+    color:{value:"#4f7cff"},
+    shape:{type:"circle"},
+    opacity:{value:0.6},
+    size:{value:2},
+    move:{enable:true,speed:1}
+  },
+  interactivity:{
+    events:{onhover:{enable:true,mode:"repulse"}}
+  }
+});
+
 /* ================= STATE ================= */
 let state = JSON.parse(localStorage.getItem("surveyState")) || {
   step:0,
   coins:0,
-  answers:{},
-  surveyComplete:false,
+  answers:{}
 };
 
-/* ================= QUESTIONS ================= */
+/* ================= AUDIO ENGINE (iOS SAFE) ================= */
+let audioCtx;
+
+function initAudio(){
+  if(!audioCtx){
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+function playBirds(){
+  initAudio();
+  for(let i=0;i<6;i++){
+    const osc = audioCtx.createOscillator();
+    osc.frequency.value = 1200 + Math.random()*800;
+    osc.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime + i*0.25);
+    osc.stop(audioCtx.currentTime + i*0.25 + 0.1);
+  }
+}
+
+function playWolf(){
+  initAudio();
+  const osc = audioCtx.createOscillator();
+  osc.type="sine";
+  osc.frequency.setValueAtTime(180,audioCtx.currentTime);
+  osc.frequency.exponentialRampToValueAtTime(80,audioCtx.currentTime+3);
+  osc.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime+3);
+}
+
+function playTraffic(){
+  initAudio();
+  const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate*3, audioCtx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
+  const src = audioCtx.createBufferSource();
+  src.buffer = buffer;
+  src.connect(audioCtx.destination);
+  src.start();
+}
+
+/* ================= SURVEY ================= */
 const survey = [
   {type:"info", text:"The first questions collect personal information."},
-
   {type:"sound"},
-  {type:"choice", q:"What did you hear?", o:["Birds Chirping","Wolf Howling","Noisy Traffic"], correct:true},
-
+  {type:"choice", q:"What did you hear?", o:["Birds Chirping","Wolf Howling","Noisy Traffic"]},
   {type:"choice", q:"What is your gender?", o:["Man","Woman"]},
   {type:"choice", q:"Your age?", o:["-18","20-30","30-40","40-50","50+"]},
-  {type:"input", q:"Zip code (numbers only)", numeric:true},
-
-  {type:"choice", q:"Did you buy a car in the last 5 years?", o:["Yes","No"], disqualify:"No"},
-  {type:"choice", q:"What year did you buy the car?", o:["2022","2023","2024","2025","2026"]},
-  {type:"choice", q:"Car model?", o:["Ford","Sixt","GoldCar","Pro%"]},
-
-  {type:"table", q:"Rate these car models"},
-  {type:"movies"}
+  {type:"input", q:"Zip Code (numbers only)"}
 ];
 
-/* ================= RENDER ================= */
+let soundPlayed=false;
+let lastSound="";
+
 function render(){
   $("coinsUI").textContent="🪙 Coins: "+state.coins;
   const q = survey[state.step];
   if(!q){ return endSurvey(); }
 
-  let html = `<div class="fade"><div class="progress">
-    <div style="width:${(state.step/survey.length)*100}%"></div></div>`;
+  let html=`<div class="fade">
+    <div class="progress"><div style="width:${(state.step/survey.length)*100}%"></div></div>`;
 
   if(q.type==="info"){
     html+=`<p>${q.text}</p><button class="primary" onclick="next()">Continue</button>`;
@@ -89,8 +150,8 @@ function render(){
   if(q.type==="sound"){
     html+=`
       <h3>Sound Check</h3>
-      <button class="primary" onclick="playSound()">▶ Play Sound</button>
-      <button id="continueBtn" disabled class="secondary" onclick="next()">Continue</button>
+      <button class="primary" onclick="playSound()">▶ Play Sound</button><br><br>
+      <button id="continueBtn" class="secondary" disabled onclick="next()">Continue</button>
     `;
   }
 
@@ -104,26 +165,9 @@ function render(){
   if(q.type==="input"){
     html+=`
       <h3>${q.q}</h3>
-      <input id="inp" style="width:100%;padding:10px">
-      <br><br>
+      <input id="inp" style="width:100%;padding:12px"><br><br>
       <button class="primary" onclick="answerInput()">Continue</button>
     `;
-  }
-
-  if(q.type==="table"){
-    html+=`<h3>${q.q}</h3><table>`;
-    ["Ford","Sixt","GoldCar","Pro%"].forEach(r=>{
-      html+=`<tr><th>${r}</th>`;
-      for(let i=1;i<=5;i++){
-        html+=`<td onclick="selectCell(this)">${i}</td>`;
-      }
-      html+=`</tr>`;
-    });
-    html+=`</table><br><button class="primary" onclick="next()">Continue</button>`;
-  }
-
-  if(q.type==="movies"){
-    renderMovies(); return;
   }
 
   html+=`</div>`;
@@ -131,19 +175,15 @@ function render(){
 }
 
 function playSound(){
-  const sounds=[soundBirds,soundWolf,soundTraffic];
-  const s=sounds[Math.floor(Math.random()*3)];
-  s.currentTime=0;
-  s.play();
-  s.onended=()=>$("continueBtn").disabled=false;
+  soundPlayed=true;
+  const r=Math.random();
+  if(r<0.33){ playBirds(); lastSound="Birds Chirping"; }
+  else if(r<0.66){ playWolf(); lastSound="Wolf Howling"; }
+  else{ playTraffic(); lastSound="Noisy Traffic"; }
+  setTimeout(()=>{$("continueBtn").disabled=false},3000);
 }
 
 function answer(v){
-  const q=survey[state.step];
-  if(q.disqualify && v===q.disqualify){
-    $("app").innerHTML="<h2>Disqualified</h2>";
-    return;
-  }
   state.answers[state.step]=v;
   state.coins++;
   state.step++;
@@ -164,54 +204,13 @@ function next(){
   save(); render();
 }
 
-function selectCell(td){
-  td.parentNode.querySelectorAll("td").forEach(c=>c.classList.remove("selected"));
-  td.classList.add("selected");
-}
-
-/* ================= MOVIES ================= */
-let movieIndex=0;
-const movies=["How to Train Your Dragon","Skyfall","Echo City","Moonrise 9"];
-
-function renderMovies(){
-  $("app").innerHTML=`
-    <h3>Rate this movie</h3>
-    <p><b>${movies[movieIndex]}</b></p>
-    <p>${movieIndex+1} / ${movies.length}</p>
-    ${["Extremely good","Particularly good","More or less","Particularly bad","Extremely bad"]
-      .map(o=>`<button class="choice primary" onclick="movieAnswer()">${o}</button>`).join("")}
-  `;
-}
-
-function movieAnswer(){
-  state.coins++;
-  movieIndex++;
-  if(movieIndex>=movies.length){
-    state.step++;
-    save(); render();
-  }else renderMovies();
-}
-
-/* ================= END + SHOP ================= */
 function endSurvey(){
-  state.surveyComplete=true;
-  save();
   $("app").innerHTML=`
     <h2>Survey Complete</h2>
-    <div class="shop">
-      <h3>Coin Shop</h3>
-      <button onclick="buySkip()">Skip Chance +0.25% (100 coins)</button>
-      <button onclick="buyQuestions()">+5 Survey Questions (125 coins)</button>
-      <button onclick="buyDouble()">Double Coin Chance (40 coins)</button>
-    </div>
+    <p>You may now continue.</p>
     <button class="secondary" onclick="restart()">Start Over Survey</button>
   `;
 }
-
-/* ================= SHOP LOGIC ================= */
-function buySkip(){ if(state.coins>=100){state.coins-=100;save();render();} }
-function buyQuestions(){ if(state.coins>=125){state.coins-=125;save();render();} }
-function buyDouble(){ if(state.coins>=40){state.coins-=40;save();render();} }
 
 function restart(){
   state.step=0;
@@ -219,10 +218,11 @@ function restart(){
   save(); render();
 }
 
-function save(){ localStorage.setItem("surveyState",JSON.stringify(state)); }
+function save(){
+  localStorage.setItem("surveyState",JSON.stringify(state));
+}
 const $=id=>document.getElementById(id);
 
-/* ================= INIT ================= */
 render();
 </script>
 </body>
