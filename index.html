@@ -9,39 +9,48 @@
 
 <style>
 html,body{
-  margin:0;padding:0;
-  background:#050814;color:white;
-  font-family:system-ui,sans-serif;
-  overflow:hidden;
+  margin:0;padding:0;background:#050814;color:white;
+  font-family:system-ui,sans-serif;overflow:hidden
 }
-#particles-js{
-  position:fixed;width:100%;height:100%;z-index:-1;
-}
+#particles-js{position:fixed;width:100%;height:100%;z-index:-1}
 #app{max-width:900px;margin:auto;padding:30px}
-button{padding:14px 20px;border:none;border-radius:12px;font-size:16px;cursor:pointer}
+
+button{
+  padding:14px 20px;border:none;border-radius:12px;
+  font-size:16px;cursor:pointer
+}
 .primary{background:#4f7cff;color:white}
 .secondary{background:#333;color:white}
 .choice{display:block;width:100%;margin:8px 0}
+
 .progress{height:10px;background:#222;border-radius:10px;overflow:hidden}
 .progress div{height:100%;background:#4f7cff}
-.fade{animation:fade .4s}
-@keyframes fade{from{opacity:0}to{opacity:1}}
 
 .topLeft{
-  position:fixed;
-  top:10px;
-  left:10px;
-  font-weight:bold;
+  position:fixed;top:10px;left:10px;font-weight:bold
 }
-.topLeft div{margin-bottom:6px}
 
 .card{
   background:#0b1024;
   padding:16px;
-  border-radius:14px;
-  margin:12px 0;
+  border-radius:16px;
+  margin:14px 0
 }
-.shopBtn{width:100%;margin:6px 0}
+
+.reward{
+  font-size:42px;
+  font-weight:800;
+  color:#3cff87;
+  text-align:center;
+  margin:20px 0
+}
+
+.stars span{
+  font-size:26px;
+  cursor:pointer;
+  color:#444
+}
+.stars span.active{color:gold}
 </style>
 </head>
 
@@ -52,162 +61,153 @@ button{padding:14px 20px;border:none;border-radius:12px;font-size:16px;cursor:po
 <div class="topLeft">
   <div id="coinsUI">🪙 Coins: 0</div>
   <div id="trickUI">🎲 Trick Chance: 5%</div>
-  <div id="skipUI">⏭ Skip Chance: 0%</div>
-  <div id="doubleUI">🪙 Double Coin Chance: 0%</div>
 </div>
 
 <div id="app"></div>
 
 <script>
-/* ================= PARTICLES ================= */
+/* PARTICLES */
 particlesJS("particles-js",{
   particles:{number:{value:60},color:{value:"#4f7cff"},size:{value:2},move:{enable:true,speed:1}},
   interactivity:{events:{onhover:{enable:true,mode:"repulse"}}}
 });
 
-/* ================= STATE (NORMALIZED) ================= */
-let state = JSON.parse(localStorage.getItem("surveyState")) || {};
-state.step ??= 0;
-state.coins ??= 0;
-state.answers ??= {};
-state.trickChance ??= 5;
-state.skipChance ??= 0;
-state.doubleCoinChance ??= 0;
+/* STATE */
+let state = JSON.parse(localStorage.getItem("surveyState")) || {
+  step:0,
+  coins:0,
+  trickChance:5,
+  inTrick:false,
+  trickType:null,
+  clicks:0
+};
 
-/* ================= SURVEY ================= */
-const survey = [
-  {type:"info", text:"The first questions collect personal information."},
-  {type:"choice", q:"What is your gender?", o:["Man","Woman"]},
-  {type:"choice", q:"Your age?", o:["-18","20-30","30-40","40-50","50+"]},
-  {type:"input", q:"Zip Code (numbers only)"}
+/* SURVEY */
+const survey=[
+  {type:"choice",q:"What is your gender?",o:["Man","Woman"]},
+  {type:"choice",q:"Your age?",o:["-18","20-30","30-40","40-50","50+"]},
+  {type:"input",q:"Zip Code"}
 ];
 
-/* ================= RENDER ================= */
+/* RENDER */
 function render(){
-  $("coinsUI").textContent="🪙 Coins: "+state.coins;
-  $("trickUI").textContent="🎲 Trick Chance: "+state.trickChance.toFixed(1)+"%";
-  $("skipUI").textContent="⏭ Skip Chance: "+state.skipChance.toFixed(2)+"%";
-  $("doubleUI").textContent="🪙 Double Coin Chance: "+state.doubleCoinChance.toFixed(2)+"%";
+  coinsUI.textContent="🪙 Coins: "+state.coins;
+  trickUI.textContent="🎲 Trick Chance: "+state.trickChance+"%";
 
-  const q = survey[state.step];
+  if(state.inTrick) return renderTrick();
+
+  const q=survey[state.step];
   if(!q) return endSurvey();
 
-  let html=`<div class="fade">
-    <div class="progress"><div style="width:${(state.step/survey.length)*100}%"></div></div>`;
-
-  if(q.type==="info"){
-    html+=`<p>${q.text}</p><button class="primary" onclick="next()">Continue</button>`;
-  }
+  let html=`<div class="progress"><div style="width:${(state.step/survey.length)*100}%"></div></div>`;
 
   if(q.type==="choice"){
     html+=`<h3>${q.q}</h3>`;
     q.o.forEach(o=>{
-      html+=`<button class="choice primary" onclick="answer('${o}')">${o}</button>`;
+      html+=`<button class="choice primary" onclick="answer()">${o}</button>`;
     });
   }
 
   if(q.type==="input"){
-    html+=`
-      <h3>${q.q}</h3>
-      <input id="inp" style="width:100%;padding:12px"><br><br>
-      <button class="primary" onclick="answerInput()">Continue</button>
-    `;
+    html+=`<h3>${q.q}</h3>
+    <input id="inp" style="width:100%;padding:12px">
+    <br><br><button class="primary" onclick="answer()">Continue</button>`;
   }
 
-  html+=`</div>`;
-  $("app").innerHTML=html;
+  app.innerHTML=html;
 }
 
-/* ================= ANSWERS ================= */
-function answer(v){
-  state.answers[state.step]=v;
-  gainCoins();
-  advance();
-}
-
-function answerInput(){
-  const v=$("inp").value.trim();
-  if(!v) return;
-  state.answers[state.step]=v;
-  gainCoins();
-  advance();
-}
-
-function gainCoins(){
-  state.coins += (Math.random()*100 < state.doubleCoinChance) ? 2 : 1;
-}
-
-function advance(){
+/* ANSWER */
+function answer(){
+  state.coins++;
   state.step++;
-  state.trickChance = Math.min(100, state.trickChance + 1);
-  save(); render();
+  if(Math.random()*100 < state.trickChance){
+    state.inTrick=true;
+    const r=Math.random();
+    state.trickType=r<0.25?"letter":r<0.5?"image":r<0.75?"slider":"clicker";
+  }
+  state.trickChance=Math.min(100,state.trickChance+1);
+  save();render();
 }
 
-function next(){ advance(); }
+/* TRICKS */
+function renderTrick(){
+  let html="";
+  if(state.trickType==="letter"){
+    html=`<h3>Select D</h3>
+    ${["A","B","C","D"].map(l=>`<button class="choice primary" onclick="check('${l}')">${l}</button>`).join("")}`;
+  }
+  if(state.trickType==="image"){
+    html=`<h3>What is this?</h3>
+    <img src="https://upload.wikimedia.org/wikipedia/commons/8/89/Tomato_je.jpg" width="120"><br><br>
+    ${["Tomato","Apple","Onion"].map(o=>`<button class="choice primary" onclick="check('${o}')">${o}</button>`).join("")}`;
+  }
+  if(state.trickType==="slider"){
+    html=`<h3>Slide to 7</h3>
+    <input type="range" min="1" max="10" id="s" oninput="sv.textContent=this.value">
+    <div id="sv">5</div>
+    <button class="primary" onclick="check()">Submit</button>`;
+  }
+  if(state.trickType==="clicker"){
+    state.clicks=0;
+    html=`<h3>Click to 300</h3>
+    <h2 id="sc">0</h2>
+    <button class="primary" onclick="clicker()">Click</button>`;
+  }
+  app.innerHTML=html;
+}
 
-/* ================= END + SHOP + MORE SURVEYS ================= */
+function check(v){
+  if(state.trickType==="letter"&&v!=="D")return fail();
+  if(state.trickType==="image"&&v!=="Tomato")return fail();
+  if(state.trickType==="slider"&&s.value!=7)return fail();
+  state.inTrick=false;
+  save();render();
+}
+
+function clicker(){
+  state.clicks+=50;
+  sc.textContent=state.clicks;
+  if(state.clicks>=300){
+    state.inTrick=false;
+    save();render();
+  }
+}
+
+function fail(){
+  app.innerHTML=`<h2>❌ Disqualified</h2><button onclick="restart()">Restart</button>`;
+}
+
+/* END SURVEY */
 function endSurvey(){
-  $("app").innerHTML=`
-    <h2>Survey Complete</h2>
+  app.innerHTML=`
+    <div class="reward">+0.38 USD</div>
 
     <div class="card">
-      <h3>Shop</h3>
-      <button class="shopBtn primary" onclick="buySkip()">
-        ⏭ Skip Chance +0.25% (Cost: 100 🪙)
-      </button>
-      <button class="shopBtn primary" onclick="buyDouble()">
-        🪙 Double Coin Chance +0.75% (Cost: 40 🪙)
-      </button>
-    </div>
-
-    <div class="card">
-      <h3>More Surveys</h3>
-      ${renderSurveyCards()}
+      <b>Survey Available</b><br>
+      💰 0.38 USD<br>
+      ⏱ ~14 min<br>
+      👥 74 completed
+      <div class="stars">${[1,2,3,4,5].map(i=>`<span onclick="rate(${i})">★</span>`).join("")}</div>
     </div>
 
     <button class="secondary" onclick="restart()">Start Over Survey</button>
   `;
 }
 
-function renderSurveyCards(){
-  let out="";
-  for(let i=0;i<3;i++){
-    const reward=(Math.random()*0.6+0.2).toFixed(2);
-    const time=Math.floor(Math.random()*10)+10;
-    const users=Math.floor(Math.random()*100)+20;
-    out+=`
-      <div class="card">
-        💵 $${reward} • ⏱ ${time} min • 👥 ${users} users
-        <br><button class="primary" onclick="restart()">Start Survey</button>
-      </div>`;
-  }
-  return out;
+function rate(n){
+  document.querySelectorAll(".stars span").forEach((s,i)=>{
+    s.classList.toggle("active",i<n);
+  });
 }
 
-/* ================= SHOP ================= */
-function buySkip(){
-  if(state.coins>=100){
-    state.coins-=100;
-    state.skipChance=Math.min(1,state.skipChance+.25);
-    save(); render();
-  }
-}
-function buyDouble(){
-  if(state.coins>=40){
-    state.coins-=40;
-    state.doubleCoinChance=Math.min(40,state.doubleCoinChance+.75);
-    save(); render();
-  }
-}
-
-/* ================= UTILS ================= */
+/* UTILS */
 function restart(){
   state.step=0;
-  state.answers={};
-  save(); render();
+  state.inTrick=false;
+  save();render();
 }
 function save(){localStorage.setItem("surveyState",JSON.stringify(state))}
-const $=id=>document.getElementById(id);
 
 render();
 </script>
