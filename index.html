@@ -5,122 +5,77 @@
 <title>Survey Game</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- PARTICLES -->
 <script src="https://cdn.jsdelivr.net/npm/particles.js@2.0.0/particles.min.js"></script>
 
 <style>
 html,body{
-  margin:0;
-  padding:0;
-  background:#050814;
-  color:white;
+  margin:0;padding:0;
+  background:#050814;color:white;
   font-family:system-ui,sans-serif;
   overflow:hidden;
 }
 #particles-js{
-  position:fixed;
-  width:100%;
-  height:100%;
-  z-index:-1;
+  position:fixed;width:100%;height:100%;z-index:-1;
 }
-#app{
-  max-width:900px;
-  margin:auto;
-  padding:30px;
-}
-button{
-  padding:14px 20px;
-  border:none;
-  border-radius:12px;
-  font-size:16px;
-  cursor:pointer;
-}
+#app{max-width:900px;margin:auto;padding:30px}
+button{padding:14px 20px;border:none;border-radius:12px;font-size:16px;cursor:pointer}
 .primary{background:#4f7cff;color:white}
 .secondary{background:#333;color:white}
 .choice{display:block;width:100%;margin:8px 0}
 .progress{height:10px;background:#222;border-radius:10px;overflow:hidden}
 .progress div{height:100%;background:#4f7cff}
-.topLeft{
-  position:fixed;
-  top:10px;
-  left:10px;
-  font-weight:bold;
-}
+.topLeft{position:fixed;top:10px;left:10px;font-weight:bold}
+.topLeft div{margin-bottom:6px}
 .fade{animation:fade .4s}
 @keyframes fade{from{opacity:0}to{opacity:1}}
+
+.clickerBox{
+  background:#0b1024;padding:20px;border-radius:14px;margin-top:20px
+}
+.float{
+  position:absolute;
+  font-weight:800;
+  pointer-events:none;
+  animation:floatUp 1s forwards;
+}
+@keyframes floatUp{
+  from{opacity:1;transform:translateY(0)}
+  to{opacity:0;transform:translateY(-40px)}
+}
+.shopBtn{margin:6px 0;width:100%}
+.card{
+  background:#0b1024;padding:16px;border-radius:14px;margin:12px 0
+}
 </style>
 </head>
 
 <body>
 
 <div id="particles-js"></div>
-<div class="topLeft" id="coinsUI">🪙 Coins: 0</div>
+
+<div class="topLeft">
+  <div id="coinsUI">🪙 Coins: 0</div>
+  <div id="trickUI">🎲 Trick Chance: 5%</div>
+</div>
+
 <div id="app"></div>
 
 <script>
-/* ================= PARTICLES INIT ================= */
+/* ================= PARTICLES ================= */
 particlesJS("particles-js",{
-  particles:{
-    number:{value:60},
-    color:{value:"#4f7cff"},
-    shape:{type:"circle"},
-    opacity:{value:0.6},
-    size:{value:2},
-    move:{enable:true,speed:1}
-  },
-  interactivity:{
-    events:{onhover:{enable:true,mode:"repulse"}}
-  }
+  particles:{number:{value:60},color:{value:"#4f7cff"},size:{value:2},move:{enable:true,speed:1}},
+  interactivity:{events:{onhover:{enable:true,mode:"repulse"}}}
 });
 
 /* ================= STATE ================= */
 let state = JSON.parse(localStorage.getItem("surveyState")) || {
   step:0,
   coins:0,
-  answers:{}
+  answers:{},
+  trickChance:5,
+  skipChance:0,
+  doubleCoinChance:0
 };
-
-/* ================= AUDIO ENGINE (iOS SAFE) ================= */
-let audioCtx;
-
-function initAudio(){
-  if(!audioCtx){
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  }
-}
-
-function playBirds(){
-  initAudio();
-  for(let i=0;i<6;i++){
-    const osc = audioCtx.createOscillator();
-    osc.frequency.value = 1200 + Math.random()*800;
-    osc.connect(audioCtx.destination);
-    osc.start(audioCtx.currentTime + i*0.25);
-    osc.stop(audioCtx.currentTime + i*0.25 + 0.1);
-  }
-}
-
-function playWolf(){
-  initAudio();
-  const osc = audioCtx.createOscillator();
-  osc.type="sine";
-  osc.frequency.setValueAtTime(180,audioCtx.currentTime);
-  osc.frequency.exponentialRampToValueAtTime(80,audioCtx.currentTime+3);
-  osc.connect(audioCtx.destination);
-  osc.start();
-  osc.stop(audioCtx.currentTime+3);
-}
-
-function playTraffic(){
-  initAudio();
-  const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate*3, audioCtx.sampleRate);
-  const data = buffer.getChannelData(0);
-  for(let i=0;i<data.length;i++) data[i]=Math.random()*2-1;
-  const src = audioCtx.createBufferSource();
-  src.buffer = buffer;
-  src.connect(audioCtx.destination);
-  src.start();
-}
 
 /* ================= SURVEY ================= */
 const survey = [
@@ -132,95 +87,100 @@ const survey = [
   {type:"input", q:"Zip Code (numbers only)"}
 ];
 
-let soundPlayed=false;
-let lastSound="";
+/* ================= AUDIO ================= */
+let audioCtx;
+function initAudio(){
+  if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+}
+function playBirds(){initAudio();for(let i=0;i<6;i++){let o=audioCtx.createOscillator();o.frequency.value=1200+Math.random()*800;o.connect(audioCtx.destination);o.start(audioCtx.currentTime+i*.25);o.stop(audioCtx.currentTime+i*.25+.1)}}
+function playWolf(){initAudio();let o=audioCtx.createOscillator();o.frequency.setValueAtTime(180,audioCtx.currentTime);o.frequency.exponentialRampToValueAtTime(80,audioCtx.currentTime+3);o.connect(audioCtx.destination);o.start();o.stop(audioCtx.currentTime+3)}
+function playTraffic(){initAudio();let b=audioCtx.createBuffer(1,audioCtx.sampleRate*3,audioCtx.sampleRate);let d=b.getChannelData(0);for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;let s=audioCtx.createBufferSource();s.buffer=b;s.connect(audioCtx.destination);s.start()}
 
+/* ================= RENDER ================= */
 function render(){
   $("coinsUI").textContent="🪙 Coins: "+state.coins;
-  const q = survey[state.step];
-  if(!q){ return endSurvey(); }
+  $("trickUI").textContent="🎲 Trick Chance: "+state.trickChance+"%";
 
-  let html=`<div class="fade">
-    <div class="progress"><div style="width:${(state.step/survey.length)*100}%"></div></div>`;
-
-  if(q.type==="info"){
-    html+=`<p>${q.text}</p><button class="primary" onclick="next()">Continue</button>`;
+  if(Math.random()*100 < state.trickChance){
+    return renderClickerTrick();
   }
 
-  if(q.type==="sound"){
-    html+=`
-      <h3>Sound Check</h3>
-      <button class="primary" onclick="playSound()">▶ Play Sound</button><br><br>
-      <button id="continueBtn" class="secondary" disabled onclick="next()">Continue</button>
-    `;
-  }
+  const q=survey[state.step];
+  if(!q) return endSurvey();
 
-  if(q.type==="choice"){
-    html+=`<h3>${q.q}</h3>`;
-    q.o.forEach(o=>{
-      html+=`<button class="choice primary" onclick="answer('${o}')">${o}</button>`;
-    });
-  }
+  let html=`<div class="fade"><div class="progress"><div style="width:${(state.step/survey.length)*100}%"></div></div>`;
 
-  if(q.type==="input"){
-    html+=`
-      <h3>${q.q}</h3>
-      <input id="inp" style="width:100%;padding:12px"><br><br>
-      <button class="primary" onclick="answerInput()">Continue</button>
-    `;
-  }
+  if(q.type==="info") html+=`<p>${q.text}</p><button class="primary" onclick="next()">Continue</button>`;
+  if(q.type==="sound") html+=`<h3>Sound Check</h3><button class="primary" onclick="playBirds()">▶ Play Sound</button><br><br><button class="secondary" onclick="next()">Continue</button>`;
+  if(q.type==="choice"){html+=`<h3>${q.q}</h3>`;q.o.forEach(o=>html+=`<button class="choice primary" onclick="answer('${o}')">${o}</button>`)}
+  if(q.type==="input") html+=`<h3>${q.q}</h3><input id="inp" style="width:100%;padding:12px"><br><br><button class="primary" onclick="answerInput()">Continue</button>`;
 
-  html+=`</div>`;
+  html+="</div>";
   $("app").innerHTML=html;
 }
 
-function playSound(){
-  soundPlayed=true;
-  const r=Math.random();
-  if(r<0.33){ playBirds(); lastSound="Birds Chirping"; }
-  else if(r<0.66){ playWolf(); lastSound="Wolf Howling"; }
-  else{ playTraffic(); lastSound="Noisy Traffic"; }
-  setTimeout(()=>{$("continueBtn").disabled=false},3000);
+/* ================= CLICKER TRICK ================= */
+function renderClickerTrick(){
+  let points=0;
+  let html=`
+    <div class="clickerBox">
+      <h3>Verification Required</h3>
+      <p>Reach 100–1000 points</p>
+      <h2 id="pts">0</h2>
+      <button class="primary" id="clickBtn">CLICK</button>
+    </div>`;
+  $("app").innerHTML=html;
+
+  $("clickBtn").onclick=e=>{
+    points+=10;
+    $("pts").textContent=points;
+    spawnFloat(e.clientX,e.clientY,"+10");
+    if(points>=100){
+      state.trickChance=5;
+      render();
+    }
+  };
 }
 
-function answer(v){
-  state.answers[state.step]=v;
-  state.coins++;
-  state.step++;
-  save(); render();
+function spawnFloat(x,y,text){
+  const d=document.createElement("div");
+  d.className="float";
+  d.textContent=text;
+  d.style.left=x+"px";
+  d.style.top=y+"px";
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),1000);
 }
 
-function answerInput(){
-  const v=$("inp").value.trim();
-  if(!v) return;
-  state.answers[state.step]=v;
-  state.coins++;
-  state.step++;
-  save(); render();
-}
+/* ================= ANSWERS ================= */
+function answer(v){state.answers[state.step]=v;gainCoins();advance();}
+function answerInput(){const v=$("inp").value.trim();if(!v)return;state.answers[state.step]=v;gainCoins();advance();}
+function gainCoins(){state.coins+=Math.random()*100<state.doubleCoinChance?2:1;}
+function advance(){state.step++;state.trickChance=Math.min(30,state.trickChance+1);save();render();}
+function next(){advance();}
 
-function next(){
-  state.step++;
-  save(); render();
-}
-
+/* ================= END ================= */
 function endSurvey(){
+  const payout=Math.floor(Math.random()*11)+20;
   $("app").innerHTML=`
     <h2>Survey Complete</h2>
-    <p>You may now continue.</p>
+    <p>You earned ${payout}c</p>
+
+    <div class="card">
+      <h3>Shop</h3>
+      <button class="shopBtn primary" onclick="buySkip()">Skip Chance +0.25%</button>
+      <button class="shopBtn primary" onclick="buyDouble()">Double Coin Chance +0.75%</button>
+    </div>
+
     <button class="secondary" onclick="restart()">Start Over Survey</button>
   `;
 }
 
-function restart(){
-  state.step=0;
-  state.answers={};
-  save(); render();
-}
+function buySkip(){if(state.coins>=100){state.coins-=100;state.skipChance=Math.min(1,state.skipChance+.25);save();render()}}
+function buyDouble(){if(state.coins>=40){state.coins-=40;state.doubleCoinChance=Math.min(40,state.doubleCoinChance+.75);save();render()}}
 
-function save(){
-  localStorage.setItem("surveyState",JSON.stringify(state));
-}
+function restart(){state.step=0;state.answers={};save();render()}
+function save(){localStorage.setItem("surveyState",JSON.stringify(state))}
 const $=id=>document.getElementById(id);
 
 render();
